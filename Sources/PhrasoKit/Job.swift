@@ -20,6 +20,8 @@ public struct Job: Sendable {
     public var transcript: Transcript?
     public var locale: String = "en-US"
     public var codec: Codec = .hevc
+    /// HEVC's quality, 0...1 (`MovieWriter.quality`).
+    public var quality: Double = MovieWriter.defaultQuality
     public var background: Background = .gap
 
     public init(video: URL, style: Style, outputDirectory: URL? = nil, name: String? = nil, words: URL? = nil) {
@@ -72,7 +74,7 @@ public struct Job: Sendable {
         let (steps, frames) = Job.plan(transcript, style: style, frameRate: media.frameRate)
         progress?(.rendering, 0)
         let renderer = Renderer(style: style, width: media.width, height: media.height)
-        let writer = MovieWriter(renderer: renderer, frameRate: media.frameRate, frames: frames, codec: codec)
+        let writer = MovieWriter(renderer: renderer, frameRate: media.frameRate, frames: frames, codec: codec, quality: quality)
         try writer.write(steps, to: movieURL) { done, total in progress?(.rendering, Double(done) / Double(max(total, 1))) }
         progress?(.writing, 1)
         let xml = FCPXML.document(name: name, movie: movieURL, frames: frames, frameRate: media.frameRate,

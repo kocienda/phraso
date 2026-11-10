@@ -8,6 +8,14 @@ import VideoToolbox
 
 public enum Codec: String, CaseIterable, Sendable {
     case hevc, prores
+
+    /// The name a person picks it by.
+    public var label: String {
+        switch self {
+        case .hevc: return "HEVC with Alpha"
+        case .prores: return "Apple ProRes 4444"
+        }
+    }
 }
 
 public enum MovieError: Error, CustomStringConvertible {
@@ -22,9 +30,15 @@ public struct MovieWriter {
     public var frameRate: FrameRate
     public var frames: Int
     public var codec: Codec
+    /// HEVC's quality, 0...1; the alpha channel is kept a little above it, since a soft
+    /// edge shows before a soft fill does. ProRes 4444 has no such dial.
+    public var quality: Double
 
-    public init(renderer: Renderer, frameRate: FrameRate, frames: Int, codec: Codec = .hevc) {
+    public static let defaultQuality = 0.9
+
+    public init(renderer: Renderer, frameRate: FrameRate, frames: Int, codec: Codec = .hevc, quality: Double = MovieWriter.defaultQuality) {
         self.renderer = renderer; self.frameRate = frameRate; self.frames = frames; self.codec = codec
+        self.quality = min(max(quality, 0), 1)
     }
 
     /// The step showing on frame f and how many frames into it f is. Steps are in order.
@@ -59,8 +73,8 @@ public struct MovieWriter {
         case .hevc:
             settings[AVVideoCodecKey] = AVVideoCodecType.hevcWithAlpha
             settings[AVVideoCompressionPropertiesKey] = [
-                AVVideoQualityKey: 0.9,
-                kVTCompressionPropertyKey_TargetQualityForAlpha as String: 0.95,
+                AVVideoQualityKey: quality,
+                kVTCompressionPropertyKey_TargetQualityForAlpha as String: min(quality + 0.05, 1),
                 AVVideoAllowFrameReorderingKey: false,
             ]
         }

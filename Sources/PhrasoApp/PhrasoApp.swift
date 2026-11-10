@@ -16,6 +16,7 @@ struct PhrasoApp: App {
                 .frame(minWidth: 940, minHeight: 600)
         }
         .commands { DocumentCommands() }
+        Settings { SettingsView() }
     }
 }
 

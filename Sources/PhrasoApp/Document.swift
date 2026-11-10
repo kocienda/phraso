@@ -274,7 +274,7 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
     func export() {
         guard let url = videoURL, let t = transcript else { return }
         let panel = NSSavePanel()
-        panel.message = "Where the caption track (.mov + .fcpxml) goes"
+        panel.message = "Location for movie and Final Cut XML file"
         panel.nameFieldStringValue = url.deletingPathExtension().lastPathComponent + ".captions"
         panel.directoryURL = url.deletingLastPathComponent()
         panel.allowedContentTypes = [.quickTimeMovie]
@@ -283,6 +283,8 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
         var job = Job(video: url, style: style, outputDirectory: out.deletingLastPathComponent(),
                       name: out.deletingPathExtension().lastPathComponent)
         job.transcript = t
+        job.codec = ExportSettings.codec
+        job.quality = ExportSettings.quality
         isBusy = true
         progress = 0
         status = "Rendering…"

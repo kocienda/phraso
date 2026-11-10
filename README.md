@@ -36,6 +36,10 @@ movie or sound file AVFoundation opens), and saves as a `.phraso` package holdin
 the corrected words, the style and a bookmark to the video. Build it with
 `Scripts/bundle-app.sh && open Phraso.app`, or open `Phraso.xcodeproj`.
 
+The movie is HEVC with alpha at quality 0.9 unless told otherwise: `--codec prores`
+and `--quality 0.5` to `1` on the command, Settings > Movie Export in the app. Its
+size and frame rate are always the video's own.
+
 ## Styles
 
 A style is one JSON file; the format is documented at the top of

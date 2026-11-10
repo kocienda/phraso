@@ -151,13 +151,9 @@ struct StyleInspector: View {
     private var fontPane: some View {
         PaneStack("Font") {
             FontPicker(font: $doc.style.font, size: $doc.style.size)
-            Picker("", selection: $doc.style.textCase) {
-                Text("AA").tag(TextCase.upper); Text("aa").tag(TextCase.lower)
-                Text("Aa").tag(TextCase.title); Text("Spoken").tag(TextCase.asis)
-            }
-            .pickerStyle(.segmented).labelsHidden()
-            .frame(width: Pane.content, height: Pane.control)
-            .help("Letter case: all capitals, all lower case, title case, or as spoken")
+            Segments(["AA", "aa", "Aa", "Spoken"], values: [TextCase.upper, .lower, .title, .asis], selection: $doc.style.textCase)
+                .frame(width: Pane.content, height: Pane.control)
+                .help("Letter case: all capitals, all lower case, title case, or as spoken")
             LabelRow("Tracking") { ValueField(value: $doc.style.tracking, in: -5...20, suffix: "pt") }
         }
     }
@@ -208,9 +204,8 @@ struct StyleInspector: View {
         }
     }
 
-    // What switching a part on gives it. The rows below also read through these: when a
-    // part is switched off, SwiftUI still asks the rows' bindings for a value once more
-    // before it takes the rows away, so a getter must never unwrap the part.
+    // What switching a part on gives it, and what its rows show, disabled, while it is
+    // off: the rows stay where they are, so a getter must never unwrap the part.
     private static let newShadow = Shadow(color: Color(r: 0, g: 0, b: 0, a: 0.6), offset: [0, -6], blur: 12)
     private static let newBox = Box(color: Color(r: 0, g: 0, b: 0, a: 0.75), pad: [28, 14], radius: 18)
     private static let newPop = Pop(frames: 3, from: 0.8)
@@ -222,11 +217,12 @@ struct StyleInspector: View {
         PaneStack {
             CheckTitle("Shadow", isOn: Binding(get: { doc.style.shadow != nil },
                                                set: { doc.style.shadow = $0 ? Self.newShadow : nil }))
-            if doc.style.shadow != nil {
+            Group {
                 SliderRow("Blur", value: Binding(get: { shadow.blur }, set: { doc.style.shadow?.blur = $0 }), in: 0...40, suffix: "pt")
                 SliderRow("Offset", value: Binding(get: { -shadow.offset[1] }, set: { doc.style.shadow?.offset = [shadow.offset[0], -$0] }), in: -20...20, suffix: "pt")
                 LabelRow("Color") { ColorWell(Binding(get: { shadow.color }, set: { doc.style.shadow?.color = $0 })) }
             }
+            .disabled(doc.style.shadow == nil)
         }
     }
 
@@ -234,23 +230,25 @@ struct StyleInspector: View {
         PaneStack {
             CheckTitle("Box", isOn: Binding(get: { doc.style.box != nil },
                                             set: { doc.style.box = $0 ? Self.newBox : nil }))
-            if doc.style.box != nil {
+            Group {
                 SliderRow("Padding", value: Binding(get: { box.pad[0] }, set: { doc.style.box?.pad = [$0, $0 / 2] }), in: 0...80, suffix: "pt")
                 SliderRow("Corner Radius", value: Binding(get: { box.radius }, set: { doc.style.box?.radius = $0 }), in: 0...60, suffix: "pt")
                 LabelRow("Color") { ColorWell(Binding(get: { box.color }, set: { doc.style.box?.color = $0 })) }
             }
+            .disabled(doc.style.box == nil)
         }
     }
 
     private var popPane: some View {
         PaneStack {
             CheckTitle("Pop In", isOn: Binding(get: { doc.style.pop != nil }, set: { doc.style.pop = $0 ? Self.newPop : nil }))
-            if doc.style.pop != nil {
+            Group {
                 SliderRow("Start Size", value: Binding(get: { pop.from * 100 }, set: { doc.style.pop?.from = $0 / 100 }), in: 30...100, suffix: "%")
                 LabelRow("Frames") {
                     ValueField(value: Binding(get: { CGFloat(pop.frames) }, set: { doc.style.pop?.frames = Int($0) }), in: 1...12)
                 }
             }
+            .disabled(doc.style.pop == nil)
         }
     }
 
@@ -356,11 +354,12 @@ struct CheckTitle: View {
 struct LabelRow<Content: View>: View {
     let label: String
     @ViewBuilder let content: Content
+    @Environment(\.isEnabled) private var isEnabled
     init(_ label: String, @ViewBuilder content: () -> Content) { self.label = label; self.content = content() }
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(label).font(Pane.label).lineLimit(1)
+            Text(label).font(Pane.label).lineLimit(1).foregroundStyle(isEnabled ? .primary : .tertiary)
             Spacer(minLength: 0)
             content
         }
@@ -375,13 +374,14 @@ struct SliderRow: View {
     @Binding var value: CGFloat
     let range: ClosedRange<CGFloat>
     var suffix: String = ""
+    @Environment(\.isEnabled) private var isEnabled
     init(_ label: String, value: Binding<CGFloat>, in range: ClosedRange<CGFloat>, suffix: String = "") {
         self.label = label; _value = value; self.range = range; self.suffix = suffix
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(label).font(Pane.label).frame(height: 16)
+            Text(label).font(Pane.label).frame(height: 16).foregroundStyle(isEnabled ? .primary : .tertiary)
             HStack(spacing: 0) {
                 Slider(value: $value, in: range).controlSize(.small).frame(width: Pane.slider)
                 Spacer(minLength: 0)
@@ -431,21 +431,117 @@ struct ValueField: View {
         formatter = f
     }
 
-    private var clamped: Binding<Double> {
-        Binding(get: { Double(value) }, set: { value = min(max(CGFloat($0), range.lowerBound), range.upperBound) })
-    }
-
     var body: some View {
         HStack(spacing: stepperGap) {
-            TextField("", value: clamped, formatter: formatter)
-                .labelsHidden()
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12))
-                .multilineTextAlignment(.trailing)
+            NumberField(value: $value, range: range, step: step, formatter: formatter)
                 .frame(width: width)
             Stepper("", value: $value, in: range, step: step).labelsHidden()
         }
         .frame(height: Pane.control)
+    }
+}
+
+/// The field of a `ValueField`: a text field that also steps with the arrow keys, as
+/// Keynote's do. Up and Down move the value by one step (ten with Shift) from whatever
+/// is typed, and leave it selected so the next number typed replaces it.
+private struct NumberField: NSViewRepresentable {
+    @Binding var value: CGFloat
+    let range: ClosedRange<CGFloat>
+    let step: CGFloat
+    let formatter: NumberFormatter
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field = NSTextField()
+        field.bezelStyle = .roundedBezel
+        field.font = .systemFont(ofSize: 12)
+        field.alignment = .right
+        field.formatter = formatter
+        field.delegate = context.coordinator
+        field.target = context.coordinator
+        field.action = #selector(Coordinator.commit(_:))
+        field.objectValue = NSNumber(value: Double(value))
+        return field
+    }
+
+    func updateNSView(_ field: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        field.isEnabled = context.environment.isEnabled
+        // a field being typed in keeps its text; the arrow keys write it themselves
+        if field.currentEditor() == nil, (field.objectValue as? NSNumber)?.doubleValue != Double(value) {
+            field.objectValue = NSNumber(value: Double(value))
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: NumberField
+        init(_ parent: NumberField) { self.parent = parent }
+
+        private func clamp(_ v: CGFloat) -> CGFloat { min(max(v, parent.range.lowerBound), parent.range.upperBound) }
+
+        @objc func commit(_ field: NSTextField) {
+            let v = clamp(CGFloat(field.doubleValue))
+            parent.value = v
+            field.objectValue = NSNumber(value: Double(v))
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            let direction: CGFloat
+            var steps: CGFloat = 1
+            switch selector {
+            case #selector(NSResponder.moveUp(_:)): direction = 1
+            case #selector(NSResponder.moveDown(_:)): direction = -1
+            case #selector(NSResponder.moveUpAndModifySelection(_:)): direction = 1; steps = 10
+            case #selector(NSResponder.moveDownAndModifySelection(_:)): direction = -1; steps = 10
+            default: return false
+            }
+            let typed = parent.formatter.number(from: textView.string).map { CGFloat($0.doubleValue) }
+            let v = clamp((typed ?? parent.value) + direction * steps * parent.step)
+            parent.value = v
+            textView.string = parent.formatter.string(from: NSNumber(value: Double(v))) ?? ""
+            textView.selectAll(nil)
+            return true
+        }
+    }
+}
+
+/// A segmented control that stays the width it is given, in equal segments. (SwiftUI's
+/// segmented picker re-measures itself on an update and spills over the pane's margins.)
+struct Segments<Value: Hashable>: NSViewRepresentable {
+    let labels: [String]
+    let values: [Value]
+    @Binding var selection: Value
+    init(_ labels: [String], values: [Value], selection: Binding<Value>) {
+        self.labels = labels; self.values = values; _selection = selection
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl(labels: labels, trackingMode: .selectOne, target: context.coordinator, action: #selector(Coordinator.changed(_:)))
+        control.segmentDistribution = .fillEqually
+        control.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        control.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return control
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        context.coordinator.parent = self
+        control.isEnabled = context.environment.isEnabled
+        control.selectedSegment = values.firstIndex(of: selection) ?? -1
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSSegmentedControl, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? nsView.fittingSize.width, height: proposal.height ?? nsView.fittingSize.height)
+    }
+
+    final class Coordinator: NSObject {
+        var parent: Segments
+        init(_ parent: Segments) { self.parent = parent }
+        @objc func changed(_ control: NSSegmentedControl) {
+            if parent.values.indices.contains(control.selectedSegment) { parent.selection = parent.values[control.selectedSegment] }
+        }
     }
 }
 
@@ -465,6 +561,7 @@ struct ColorWell: NSViewRepresentable {
     }
 
     func updateNSView(_ well: NSColorWell, context: Context) {
+        well.isEnabled = context.environment.isEnabled
         context.coordinator.parent = self
         let c = NSColor(srgbRed: color.r, green: color.g, blue: color.b, alpha: color.a)
         if well.color != c { well.color = c }

@@ -1,7 +1,7 @@
 // phraso: word-highlighted captions for Final Cut Pro, from the command line.
 //
 //   phraso make <video> [--style area] [--out dir] [--name N] [--words words.json]
-//                        [--codec hevc|prores] [--background gap|grey] [--locale en-US]
+//                        [--codec hevc|prores] [--quality 0.9] [--background gap|grey] [--locale en-US]
 //       video in; <name>.mov, <name>.fcpxml and <name>.words.json out, beside the video
 //   phraso transcribe <media> [--out words.json] [--locale en-US]
 //   phraso preview <video|words.json> [--style area] (--step N | --frame F | --time S) [--out card.png]
@@ -66,12 +66,13 @@ argv.removeFirst()
 
 switch cmd {
 case "make":
-    let a = Args(argv, valued: ["style", "out", "name", "words", "codec", "background", "locale"])
+    let a = Args(argv, valued: ["style", "out", "name", "words", "codec", "quality", "background", "locale"])
     guard let video = a.positional.first else { usage() }
     var job = Job(video: URL(fileURLWithPath: video), style: styleArg(a),
                   outputDirectory: a["out"].map { URL(fileURLWithPath: $0, isDirectory: true) },
                   name: a["name"], words: a["words"].map { URL(fileURLWithPath: $0) })
     if let c = a["codec"] { guard let cc = Codec(rawValue: c) else { fail("codec is hevc or prores") }; job.codec = cc }
+    if let q = a["quality"] { guard let qq = Double(q), (0...1).contains(qq) else { fail("quality is 0 to 1") }; job.quality = qq }
     if let b = a["background"] { guard let bb = Background(rawValue: b) else { fail("background is gap or grey") }; job.background = bb }
     if let l = a["locale"] { job.locale = l }
     runAsync {
