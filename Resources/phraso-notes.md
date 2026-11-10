@@ -1,0 +1,10 @@
+- space bar should stop/start the playback
+- clicking on a word chip to edit it and then hitting return should *remove the focus from that chip
+- esc should remove focus from any word chip
+- when there is no word chip selected, and there's no other field or component that has the focus, the return key should focus the first work chip
+- clicking into a word chip should *select* the entire word. second click should position the caret where I clicked
+- when a whole word chip is selected, hitting the delete key should remove the word entirely.
+- when I empty a word chip and then escape or return, that chip should be removed.
+- Clicking in between a word should insert a word.
+- need to fix copy in the app settings.
+- 

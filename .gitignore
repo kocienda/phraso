@@ -1,8 +1,21 @@
+# macOS
 .DS_Store
-.build/
-build/
+
+# SwiftPM
+/.build/
+/.swiftpm/
+/Package.resolved
+
+# Xcode
+xcuserdata/
 *.xcodeproj/project.xcworkspace/
-*.xcodeproj/xcuserdata/
-.swiftpm/
-.claude/settings.local.json
+DerivedData/
+*.xcuserstate
+
+# Built here: Scripts/bundle-app.sh's app, and the Tools/fcp helpers (build/winid, build/click)
 /Phraso.app
+/build/
+
+# Local tool state
+.claude/settings.local.json
+/.tug/
