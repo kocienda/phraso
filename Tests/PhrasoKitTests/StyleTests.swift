@@ -1,5 +1,5 @@
 import XCTest
-@testable import PhraseoKit
+@testable import PhrasoKit
 
 final class StyleTests: XCTestCase {
     func testColours() {
@@ -35,7 +35,7 @@ final class StyleTests: XCTestCase {
     }
 
     func testNewerFormatIsRefused() {
-        XCTAssertThrowsError(try JSONDecoder().decode(Style.self, from: Data(#"{"phraseo": 2, "name": "X", "font": "Anton"}"#.utf8)))
+        XCTAssertThrowsError(try JSONDecoder().decode(Style.self, from: Data(#"{"phraso": 2, "name": "X", "font": "Anton"}"#.utf8)))
     }
 
     func testUnknownPresetNamesTheOthers() {

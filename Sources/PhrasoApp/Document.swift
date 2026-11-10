@@ -1,5 +1,5 @@
 // The document: a video, its transcript, the style being edited, and the preview time.
-// Saved as a `.phraseo` package (project.json, words.json, style.json) so a project can
+// Saved as a `.phraso` package (project.json, words.json, style.json) so a project can
 // be reopened with its corrected words and its look intact; the video itself stays where
 // it is and is found again by bookmark or path. Everything the views show comes from
 // here; everything the engine does is called from here.
@@ -7,21 +7,21 @@
 import AppKit
 import AVFoundation
 import Combine
-import PhraseoKit
+import PhrasoKit
 import SwiftUI
 import UniformTypeIdentifiers
 
 extension UTType {
-    static let phraseoProject = UTType(exportedAs: "com.kocienda.phraseo.project", conformingTo: .package)
+    static let phrasoProject = UTType(exportedAs: "com.kocienda.phraso.project", conformingTo: .package)
 }
 
 @MainActor
 final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
-    static var readableContentTypes: [UTType] { [.phraseoProject] }
+    static var readableContentTypes: [UTType] { [.phrasoProject] }
 
     /// What project.json holds. The transcript and the style are files of their own.
     struct ProjectFile: Codable {
-        var phraseo = 1
+        var phraso = 1
         var video: String?
         var bookmark: Data?
         var preset: String?
@@ -52,6 +52,19 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
     /// The window's undo manager, handed over by the view; edits register here so the
     /// document knows it is dirty and ⌘Z works.
     weak var undoManager: UndoManager?
+    /// The document's window, handed over by the view.
+    weak var window: NSWindow?
+
+    /// Close a new document whose video sheet was cancelled: with no video and no file
+    /// of its own there is nothing in it to keep.
+    func closeIfEmpty() {
+        guard videoURL == nil, let w = window else { return }
+        if let d = w.windowController?.document as? NSDocument {
+            if d.fileURL == nil { d.close() }
+        } else {
+            w.close()
+        }
+    }
 
     /// The steps for the current transcript and style, on the video's frame rate.
     var plan: (steps: [RenderStep], frames: Int) {
@@ -128,13 +141,13 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
         }.store(in: &bag)
     }
 
-    /// `open Phraseo.app --env PHRASEO_VIDEO=talk.mov`, for scripts and checks. An
+    /// `open Phraso.app --env PHRASO_VIDEO=talk.mov`, for scripts and checks. An
     /// environment variable rather than an argument: AppKit treats a bare path argument
     /// as a file to open at launch, and then no untitled document is made. Taken once.
     private static var tookCommandLineVideo = false
     func loadFromCommandLine() -> Bool {
         guard videoURL == nil, !Document.tookCommandLineVideo,
-              let p = ProcessInfo.processInfo.environment["PHRASEO_VIDEO"], !p.isEmpty else { return false }
+              let p = ProcessInfo.processInfo.environment["PHRASO_VIDEO"], !p.isEmpty else { return false }
         Document.tookCommandLineVideo = true
         load(URL(fileURLWithPath: p))
         return true

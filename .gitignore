@@ -5,4 +5,4 @@ build/
 *.xcodeproj/xcuserdata/
 .swiftpm/
 .claude/settings.local.json
-/Phraseo.app
+/Phraso.app

@@ -1,7 +1,7 @@
 // A style is the look of the captions: one JSON file, the preset format.
 //
 // {
-//   "phraseo": 1,
+//   "phraso": 1,
 //   "name": "Area",
 //   "font": "Anton",                   PostScript name
 //   "size": 96,                        on a 1920x1080 canvas, scaled to the video
@@ -20,8 +20,8 @@
 //   "cards": {"words": 3, "gap": 0.6, "linger": 1.5, "hold": 0.4, "minStep": 0.1}
 // }
 //
-// Every field but "name" and "font" has a default. Presets ship inside PhraseoKit and
-// users add their own to ~/Library/Application Support/Phraseo/Presets/.
+// Every field but "name" and "font" has a default. Presets ship inside PhrasoKit and
+// users add their own to ~/Library/Application Support/Phraso/Presets/.
 
 import CoreGraphics
 import Foundation
@@ -125,7 +125,7 @@ public struct Style: Codable, Equatable, Sendable {
     public var cards: CardRules = CardRules()
 
     enum CodingKeys: String, CodingKey {
-        case phraseo, name, font, size, textCase = "case", fill, highlight, highlightScale, tracking,
+        case phraso, name, font, size, textCase = "case", fill, highlight, highlightScale, tracking,
              position, rotation, flipH, flipV, strokes, shadow, box, pop, cards
     }
 
@@ -133,8 +133,8 @@ public struct Style: Codable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        if let v = try c.decodeIfPresent(Int.self, forKey: .phraseo), v > Style.formatVersion {
-            throw DecodingError.dataCorruptedError(forKey: .phraseo, in: c, debugDescription: "preset format \(v) is newer than this Phraseo (\(Style.formatVersion))")
+        if let v = try c.decodeIfPresent(Int.self, forKey: .phraso), v > Style.formatVersion {
+            throw DecodingError.dataCorruptedError(forKey: .phraso, in: c, debugDescription: "preset format \(v) is newer than this Phraso (\(Style.formatVersion))")
         }
         name = try c.decode(String.self, forKey: .name)
         font = try c.decode(String.self, forKey: .font)
@@ -157,7 +157,7 @@ public struct Style: Codable, Equatable, Sendable {
 
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(Style.formatVersion, forKey: .phraseo)
+        try c.encode(Style.formatVersion, forKey: .phraso)
         try c.encode(name, forKey: .name)
         try c.encode(font, forKey: .font)
         try c.encode(size, forKey: .size)
@@ -188,20 +188,33 @@ public struct Style: Codable, Equatable, Sendable {
     }
 }
 
-/// Where presets come from: the ones shipped in PhraseoKit, then the user's own folder.
-/// A user preset with the same file name as a shipped one replaces it.
+/// Where presets live: the user's folder. The ones shipped in PhrasoKit are copied
+/// there the first time they are missing, so every preset is a file the user can open,
+/// edit or delete; a shipped preset edited in place stays edited.
 public enum Presets {
     public static var userDirectory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Phraseo/Presets", isDirectory: true)
+            .appendingPathComponent("Phraso/Presets", isDirectory: true)
     }
 
     public static var bundledDirectory: URL? {
         Bundle.module.url(forResource: "Presets", withExtension: nil)
     }
 
-    /// Preset files by their stem, shipped first and the user's over them.
+    /// Copy any shipped preset the user's folder lacks.
+    public static func installBundled() {
+        guard let dir = bundledDirectory else { return }
+        let fm = FileManager.default
+        try? fm.createDirectory(at: userDirectory, withIntermediateDirectories: true)
+        for u in (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [] where u.pathExtension == "json" {
+            let dest = userDirectory.appendingPathComponent(u.lastPathComponent)
+            if !fm.fileExists(atPath: dest.path) { try? fm.copyItem(at: u, to: dest) }
+        }
+    }
+
+    /// Preset files by their stem: the user's folder, with the shipped ones installed first.
     public static func files() -> [String: URL] {
+        installBundled()
         var out: [String: URL] = [:]
         for dir in [bundledDirectory, userDirectory].compactMap({ $0 }) {
             let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []

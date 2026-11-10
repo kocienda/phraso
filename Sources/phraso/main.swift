@@ -1,21 +1,21 @@
-// phraseo: word-highlighted captions for Final Cut Pro, from the command line.
+// phraso: word-highlighted captions for Final Cut Pro, from the command line.
 //
-//   phraseo make <video> [--style area] [--out dir] [--name N] [--words words.json]
+//   phraso make <video> [--style area] [--out dir] [--name N] [--words words.json]
 //                        [--codec hevc|prores] [--background gap|grey] [--locale en-US]
 //       video in; <name>.mov, <name>.fcpxml and <name>.words.json out, beside the video
-//   phraseo transcribe <media> [--out words.json] [--locale en-US]
-//   phraseo preview <video|words.json> [--style area] (--step N | --frame F | --time S) [--out card.png]
+//   phraso transcribe <media> [--out words.json] [--locale en-US]
+//   phraso preview <video|words.json> [--style area] (--step N | --frame F | --time S) [--out card.png]
 //       one card (or one timeline frame, mid-pop) on grey, to look at
-//   phraseo styles                      the presets, shipped and yours
-//   phraseo style <name> [--out f.json] a preset's JSON, to copy and edit
-//   phraseo icon [--out icon.png] [--size 1024] [--text Hi!] [--style area]
+//   phraso styles                      the presets, shipped and yours
+//   phraso style <name> [--out f.json] a preset's JSON, to copy and edit
+//   phraso icon [--out icon.png] [--size 1024] [--text Hi!] [--style area]
 //       the app icon: one spoken word in a style, on the Mac icon shape
 //
 // A style is a preset name or a path to a .json style file.
 
 import CoreGraphics
 import Foundation
-import PhraseoKit
+import PhrasoKit
 
 func fail(_ m: String) -> Never { FileHandle.standardError.write((m + "\n").data(using: .utf8)!); exit(1) }
 func note(_ m: String) { FileHandle.standardError.write((m + "\n").data(using: .utf8)!) }
@@ -142,7 +142,7 @@ case "preview":
             let f = Int((t * media.frameRate.fps).rounded())
             image = try writer.frame(f, of: steps, grey: true); tag = "frame\(f)"
         } else {
-            image = try renderer.image(steps.first ?? RenderStep(words: ["PHRASEO"], highlight: 0, first: 0, last: 1), grey: true); tag = "step0"
+            image = try renderer.image(steps.first ?? RenderStep(words: ["PHRASO"], highlight: 0, first: 0, last: 1), grey: true); tag = "step0"
         }
         let out = URL(fileURLWithPath: a["out"] ?? "/tmp/\(url.deletingPathExtension().lastPathComponent)-\(style.name.lowercased())-\(tag).png")
         try writePNG(image, to: out)
@@ -182,14 +182,10 @@ case "icon":
     let shape = CGPath(roundedRect: plate, cornerWidth: 185.4 * k, cornerHeight: 185.4 * k, transform: nil)
     ctx.saveGState()
     ctx.setShadow(offset: CGSize(width: 0, height: -10 * k), blur: 20 * k, color: CGColor(gray: 0, alpha: 0.3))
-    ctx.addPath(shape); ctx.setFillColor(CGColor(gray: 0.13, alpha: 1)); ctx.fillPath()
+    ctx.addPath(shape); ctx.setFillColor(CGColor(gray: 1, alpha: 1)); ctx.fillPath()
     ctx.restoreGState()
     ctx.saveGState()
     ctx.addPath(shape); ctx.clip()
-    let space = CGColorSpace(name: CGColorSpace.sRGB)!
-    let grad = CGGradient(colorsSpace: space, colors: [CGColor(colorSpace: space, components: [0.24, 0.25, 0.28, 1])!,
-                                                      CGColor(colorSpace: space, components: [0.08, 0.08, 0.10, 1])!] as CFArray, locations: [0, 1])!
-    ctx.drawLinearGradient(grad, start: CGPoint(x: 0, y: plate.maxY), end: CGPoint(x: 0, y: plate.minY), options: [])
     let card = try! r.image(RenderStep(words: [a["text"] ?? "Hi!"], highlight: 0, first: 0, last: 0))
     ctx.draw(card, in: CGRect(x: 0, y: 0, width: size, height: size))
     ctx.restoreGState()

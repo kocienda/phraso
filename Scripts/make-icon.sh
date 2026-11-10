@@ -5,10 +5,10 @@
 #   Scripts/make-icon.sh [--text Hi!] [--style area]
 set -e
 cd "$(dirname "$0")/.."
-swift build --product phraseo >/dev/null
+swift build --product phraso >/dev/null
 SET="$(mktemp -d)/AppIcon.iconset"
 mkdir -p "$SET"
-.build/debug/phraseo icon --out "$SET/icon_512x512@2x.png" "$@" >/dev/null
+.build/debug/phraso icon --out "$SET/icon_512x512@2x.png" "$@" >/dev/null
 for px in 16 32 128 256 512; do
   sips -z $px $px "$SET/icon_512x512@2x.png" --out "$SET/icon_${px}x${px}.png" >/dev/null
   d=$((px * 2))

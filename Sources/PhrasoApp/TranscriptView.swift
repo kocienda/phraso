@@ -1,4 +1,4 @@
-import PhraseoKit
+import PhrasoKit
 import SwiftUI
 
 /// The words as the recognizer heard them, each one editable. Click a word to move the
@@ -11,7 +11,12 @@ struct TranscriptView: View {
             HStack {
                 Text("Transcript").font(.headline)
                 Spacer()
-                if let t = doc.transcript { Text("\(t.words.count) words").foregroundStyle(.secondary).font(.callout) }
+                if doc.isBusy {
+                    ProgressView(value: doc.progress > 0 ? doc.progress : nil).controlSize(.small).frame(width: 100)
+                    Text(doc.status).foregroundStyle(.secondary).font(.callout).lineLimit(1)
+                } else if let t = doc.transcript {
+                    Text("\(t.words.count) words").foregroundStyle(.secondary).font(.callout)
+                }
                 Button("Transcribe Again") { doc.retranscribe() }.disabled(doc.videoURL == nil || doc.isBusy)
             }
             .padding(.horizontal, 12).padding(.vertical, 6)

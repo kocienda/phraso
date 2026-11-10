@@ -166,7 +166,7 @@ public func writePNG(_ img: CGImage, to url: URL) throws {
     try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
     let rep = NSBitmapImageRep(cgImage: img)
     guard let data = rep.representation(using: .png, properties: [:]) else {
-        throw NSError(domain: "Phraseo", code: 1, userInfo: [NSLocalizedDescriptionKey: "png encode failed"])
+        throw NSError(domain: "Phraso", code: 1, userInfo: [NSLocalizedDescriptionKey: "png encode failed"])
     }
     try data.write(to: url)
 }

@@ -58,7 +58,7 @@ struct FontPicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Pane.rowGap) {
             FamilyMenu(family: Binding(
                 get: { resolved?.family ?? font },
                 set: { fam in
@@ -67,23 +67,52 @@ struct FontPicker: View {
                         Fonts.noteUsed(fam)
                     }
                 }), missing: resolved == nil ? font : nil)
+                .frame(width: Pane.content, height: Pane.control)
             HStack(spacing: 8) {
-                Picker("", selection: Binding(get: { faceSelection }, set: { font = $0 })) {
-                    if let r = resolved {
-                        ForEach(Fonts.faces(of: r.family), id: \.ps) { f in Text(f.face).tag(f.ps) }
-                    } else {
-                        Text("Not installed").tag(font)
-                    }
-                }
-                .labelsHidden()
-                .frame(maxWidth: .infinity)
-                .disabled(resolved == nil)
-                HStack(spacing: 0) {
-                    TextField("", value: $size, format: FloatingPointFormatStyle<CGFloat>().precision(.fractionLength(0)))
-                        .labelsHidden().multilineTextAlignment(.trailing).frame(width: 52)
-                    Stepper("", value: $size, in: 8...400, step: 1).labelsHidden()
-                }
+                FacePopUp(faces: resolved.map { Fonts.faces(of: $0.family) } ?? [(font, "Not installed")],
+                          selection: Binding(get: { faceSelection }, set: { font = $0 }))
+                    .disabled(resolved == nil)
+                    .frame(height: Pane.control)
+                ValueField(value: $size, in: 8...400, width: 55, suffix: "pt")
             }
+            .frame(width: Pane.content)
+        }
+    }
+}
+
+/// The face pop-up for one family, full width like Keynote's.
+struct FacePopUp: NSViewRepresentable {
+    var faces: [(ps: String, face: String)]
+    @Binding var selection: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSPopUpButton {
+        let pop = NSPopUpButton(frame: .zero, pullsDown: false)
+        pop.target = context.coordinator
+        pop.action = #selector(Coordinator.pick(_:))
+        pop.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        return pop
+    }
+
+    func updateNSView(_ pop: NSPopUpButton, context: Context) {
+        context.coordinator.parent = self
+        if pop.itemArray.map({ $0.representedObject as? String }) != faces.map({ Optional($0.ps) }) {
+            pop.removeAllItems()
+            for f in faces {
+                let it = NSMenuItem(title: f.face, action: nil, keyEquivalent: "")
+                it.representedObject = f.ps
+                pop.menu?.addItem(it)
+            }
+        }
+        if let i = faces.firstIndex(where: { $0.ps == selection }) { pop.selectItem(at: i) }
+    }
+
+    final class Coordinator: NSObject {
+        var parent: FacePopUp
+        init(_ p: FacePopUp) { parent = p }
+        @objc func pick(_ pop: NSPopUpButton) {
+            if let ps = pop.selectedItem?.representedObject as? String { parent.selection = ps }
         }
     }
 }
@@ -119,6 +148,12 @@ struct FamilyMenu: NSViewRepresentable {
             pop.selectItem(withTitle: m)
         } else if let i = pop.itemArray.firstIndex(where: { ($0.representedObject as? String) == family && !$0.isSeparatorItem }) {
             pop.selectItem(at: i)
+        }
+        // the button names the family in the system font, as Keynote's does; only the
+        // menu draws each family in its own face
+        if let cell = pop.cell as? NSPopUpButtonCell {
+            cell.usesItemFromMenu = false
+            cell.menuItem = NSMenuItem(title: missing ?? family, action: nil, keyEquivalent: "")
         }
     }
 

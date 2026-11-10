@@ -1,5 +1,5 @@
 // winid: list an app's on-screen windows as "id name x y w h", one per line, so a
-// capture can target the main window. Final Cut Pro by default; `winid Phraseo` for
+// capture can target the main window. Final Cut Pro by default; `winid Phraso` for
 // another owner. Built by Tools/fcp.py on first use.
 import CoreGraphics
 import Foundation

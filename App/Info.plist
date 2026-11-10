@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>Phraseo</string>
+	<string>Phraso</string>
 	<key>CFBundleDisplayName</key>
-	<string>Phraseo</string>
+	<string>Phraso</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleVersion</key>
@@ -25,12 +25,12 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Phraseo transcribes your video on this Mac to time the captions.</string>
+	<string>Phraso transcribes your video on this Mac to time the captions.</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>Phraseo Project</string>
+			<string>Phraso Project</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -39,7 +39,7 @@
 			<true/>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>com.kocienda.phraseo.project</string>
+				<string>com.kocienda.phraso.project</string>
 			</array>
 		</dict>
 	</array>
@@ -47,9 +47,9 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
-			<string>com.kocienda.phraseo.project</string>
+			<string>com.kocienda.phraso.project</string>
 			<key>UTTypeDescription</key>
-			<string>Phraseo Project</string>
+			<string>Phraso Project</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>com.apple.package</string>
@@ -58,7 +58,7 @@
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
-					<string>phraseo</string>
+					<string>phraso</string>
 				</array>
 			</dict>
 		</dict>

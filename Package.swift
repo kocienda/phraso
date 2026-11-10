@@ -1,36 +1,36 @@
 // swift-tools-version: 6.0
-// Phraseo: word-highlighted captions for Final Cut Pro, drawn on the Mac.
+// Phraso: word-highlighted captions for Final Cut Pro, drawn on the Mac.
 //
-//   PhraseoKit  the engine: transcript, cards, styles, renderer, movie writer, FCPXML
-//   phraseo     the command-line tool on top of it
-//   PhraseoApp  the SwiftUI app (bundled by Scripts/bundle-app.sh)
+//   PhrasoKit  the engine: transcript, cards, styles, renderer, movie writer, FCPXML
+//   phraso     the command-line tool on top of it
+//   PhrasoApp  the SwiftUI app (bundled by Scripts/bundle-app.sh)
 
 import PackageDescription
 
 let package = Package(
-    name: "Phraseo",
+    name: "Phraso",
     platforms: [.macOS("26.0")],
     products: [
-        .library(name: "PhraseoKit", targets: ["PhraseoKit"]),
-        .executable(name: "phraseo", targets: ["phraseo"]),
-        .executable(name: "PhraseoApp", targets: ["PhraseoApp"]),
+        .library(name: "PhrasoKit", targets: ["PhrasoKit"]),
+        .executable(name: "phraso", targets: ["phraso"]),
+        .executable(name: "PhrasoApp", targets: ["PhrasoApp"]),
     ],
     targets: [
         .target(
-            name: "PhraseoKit",
+            name: "PhrasoKit",
             resources: [.copy("Presets")],
             swiftSettings: [.swiftLanguageMode(.v5)]),
         .executableTarget(
-            name: "phraseo",
-            dependencies: ["PhraseoKit"],
+            name: "phraso",
+            dependencies: ["PhrasoKit"],
             swiftSettings: [.swiftLanguageMode(.v5)]),
         .executableTarget(
-            name: "PhraseoApp",
-            dependencies: ["PhraseoKit"],
+            name: "PhrasoApp",
+            dependencies: ["PhrasoKit"],
             swiftSettings: [.swiftLanguageMode(.v5)]),
         .testTarget(
-            name: "PhraseoKitTests",
-            dependencies: ["PhraseoKit"],
+            name: "PhrasoKitTests",
+            dependencies: ["PhrasoKit"],
             swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )

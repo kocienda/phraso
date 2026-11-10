@@ -116,7 +116,7 @@ public enum Transcriber {
         if !hasVideo, let f = try? AVAudioFile(forReading: url) { return f }
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw TranscriptionError.noAudio(url.lastPathComponent) }
         status?("extracting the audio")
-        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("phraseo-\(UUID().uuidString).caf")
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("phraso-\(UUID().uuidString).caf")
         let reader = try AVAssetReader(asset: asset)
         let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
             AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true,
@@ -145,7 +145,7 @@ public enum Transcriber {
 
     /// `source` resampled and mixed to `format`, as a temporary .caf opened for reading.
     static func convert(_ source: AVAudioFile, to format: AVAudioFormat) throws -> AVAudioFile {
-        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("phraseo-\(UUID().uuidString).caf")
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("phraso-\(UUID().uuidString).caf")
         guard let converter = AVAudioConverter(from: source.processingFormat, to: format) else {
             throw TranscriptionError.noAudio(source.url.lastPathComponent)
         }

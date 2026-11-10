@@ -1,5 +1,5 @@
 import XCTest
-@testable import PhraseoKit
+@testable import PhrasoKit
 
 /// "tug:0.5-0.9 uses:0.9-1.4" -> [Word]
 func words(_ spec: String) -> [Word] {

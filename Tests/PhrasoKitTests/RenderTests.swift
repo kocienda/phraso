@@ -1,6 +1,6 @@
 import AVFoundation
 import XCTest
-@testable import PhraseoKit
+@testable import PhrasoKit
 
 final class RenderTests: XCTestCase {
     let transcript = Transcript(source: "t", duration: 3.0, locale: "en-US",
@@ -50,7 +50,7 @@ final class RenderTests: XCTestCase {
     func testMovieHasOneFramePerTimelineFrameAndAnAlphaChannel() async throws {
         let style = try Presets.style(named: "area")
         let (steps, frames) = Job.plan(transcript, style: style, frameRate: .fps30)
-        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("phraseo-\(UUID().uuidString).mov")
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("phraso-\(UUID().uuidString).mov")
         let writer = MovieWriter(renderer: Renderer(style: style, width: 1920, height: 1080), frameRate: .fps30, frames: frames)
         try writer.write(steps, to: tmp)
         let asset = AVURLAsset(url: tmp)
