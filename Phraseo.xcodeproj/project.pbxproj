@@ -1,0 +1,307 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1000001000000000000A001 /* PhraseoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001000000000000F001 /* PhraseoApp.swift */; };
+		A1000001000000000000A002 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001000000000000F002 /* Document.swift */; };
+		A1000001000000000000A003 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001000000000000F003 /* ContentView.swift */; };
+		A1000001000000000000A004 /* StyleViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001000000000000F004 /* StyleViews.swift */; };
+		A1000001000000000000A005 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001000000000000F005 /* TranscriptView.swift */; };
+		A1000001000000000000A006 /* FontPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001000000000000F006 /* FontPicker.swift */; };
+		A1000001000000000000A010 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A1000001000000000000F010 /* AppIcon.icns */; };
+		A1000001000000000000A020 /* PhraseoKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1000001000000000000D001 /* PhraseoKit */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A1000001000000000000F001 /* PhraseoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhraseoApp.swift; sourceTree = "<group>"; };
+		A1000001000000000000F002 /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
+		A1000001000000000000F003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A1000001000000000000F004 /* StyleViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StyleViews.swift; sourceTree = "<group>"; };
+		A1000001000000000000F005 /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptView.swift; sourceTree = "<group>"; };
+		A1000001000000000000F006 /* FontPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontPicker.swift; sourceTree = "<group>"; };
+		A1000001000000000000F010 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		A1000001000000000000F011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1000001000000000000F020 /* Phraseo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Phraseo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000001000000000000F030 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		A1000001000000000000F031 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1000001000000000000B002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000001000000000000A020 /* PhraseoKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A1000001000000000000C001 = {
+			isa = PBXGroup;
+			children = (
+				A1000001000000000000F030 /* README.md */,
+				A1000001000000000000F031 /* CLAUDE.md */,
+				A1000001000000000000C002 /* App */,
+				A1000001000000000000C003 /* PhraseoApp */,
+				A1000001000000000000C004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1000001000000000000C002 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A1000001000000000000F011 /* Info.plist */,
+				A1000001000000000000F010 /* AppIcon.icns */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A1000001000000000000C003 /* PhraseoApp */ = {
+			isa = PBXGroup;
+			children = (
+				A1000001000000000000F001 /* PhraseoApp.swift */,
+				A1000001000000000000F002 /* Document.swift */,
+				A1000001000000000000F003 /* ContentView.swift */,
+				A1000001000000000000F004 /* StyleViews.swift */,
+				A1000001000000000000F006 /* FontPicker.swift */,
+				A1000001000000000000F005 /* TranscriptView.swift */,
+			);
+			path = Sources/PhraseoApp;
+			sourceTree = "<group>";
+		};
+		A1000001000000000000C004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1000001000000000000F020 /* Phraseo.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A1000001000000000000E001 /* Phraseo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1000001000000000000E101 /* Build configuration list for PBXNativeTarget "Phraseo" */;
+			buildPhases = (
+				A1000001000000000000B001 /* Sources */,
+				A1000001000000000000B002 /* Frameworks */,
+				A1000001000000000000B003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Phraseo;
+			packageProductDependencies = (
+				A1000001000000000000D001 /* PhraseoKit */,
+			);
+			productName = Phraseo;
+			productReference = A1000001000000000000F020 /* Phraseo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1000001000000000000E000 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					A1000001000000000000E001 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+				};
+			};
+			buildConfigurationList = A1000001000000000000E100 /* Build configuration list for PBXProject "Phraseo" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A1000001000000000000C001;
+			packageReferences = (
+				A1000001000000000000D000 /* XCLocalSwiftPackageReference "." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A1000001000000000000C004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A1000001000000000000E001 /* Phraseo */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1000001000000000000B003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000001000000000000A010 /* AppIcon.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1000001000000000000B001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000001000000000000A001 /* PhraseoApp.swift in Sources */,
+				A1000001000000000000A002 /* Document.swift in Sources */,
+				A1000001000000000000A003 /* ContentView.swift in Sources */,
+				A1000001000000000000A004 /* StyleViews.swift in Sources */,
+				A1000001000000000000A006 /* FontPicker.swift in Sources */,
+				A1000001000000000000A005 /* TranscriptView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1000001000000000000E110 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A1000001000000000000E111 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		A1000001000000000000E120 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kocienda.phraseo;
+				PRODUCT_NAME = Phraseo;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A1000001000000000000E121 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kocienda.phraseo;
+				PRODUCT_NAME = Phraseo;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1000001000000000000E100 /* Build configuration list for PBXProject "Phraseo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000001000000000000E110 /* Debug */,
+				A1000001000000000000E111 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1000001000000000000E101 /* Build configuration list for PBXNativeTarget "Phraseo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000001000000000000E120 /* Debug */,
+				A1000001000000000000E121 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A1000001000000000000D000 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1000001000000000000D001 /* PhraseoKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PhraseoKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A1000001000000000000E000 /* Project object */;
+}

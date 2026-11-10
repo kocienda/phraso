@@ -1,0 +1,13 @@
+{
+  "phraseo": 1,
+  "name": "Clean",
+  "font": "Inter-Black",
+  "size": 64,
+  "case": "asis",
+  "fill": "#FFFFFF",
+  "highlight": "#FFBF33",
+  "highlightScale": 1.08,
+  "position": [0, -400],
+  "shadow": {"color": "#000000B3", "offset": [2, -2], "blur": 8},
+  "cards": {"words": 4, "hold": 0.5}
+}

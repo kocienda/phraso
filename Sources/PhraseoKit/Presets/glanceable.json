@@ -1,0 +1,14 @@
+{
+  "phraseo": 1,
+  "name": "Glanceable",
+  "font": "Anton",
+  "size": 96,
+  "case": "upper",
+  "fill": "#FFFFFF",
+  "highlight": "#4DF2F2",
+  "position": [0, -380],
+  "strokes": [{"color": "#000000", "width": 26}, {"color": "#EB0D0D", "width": 11}],
+  "shadow": {"color": "#00000080", "offset": [0, -5], "blur": 10},
+  "pop": {"frames": 3, "from": 0.8},
+  "cards": {"words": 3}
+}

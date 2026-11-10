@@ -1,0 +1,14 @@
+{
+  "phraseo": 1,
+  "name": "Yellow",
+  "font": "Impact",
+  "size": 84,
+  "case": "upper",
+  "fill": "#FFFFFF",
+  "highlight": "#FFDE00",
+  "position": [0, -380],
+  "strokes": [{"color": "#000000", "width": 14}],
+  "shadow": {"color": "#000000B3", "offset": [0, -4], "blur": 6},
+  "pop": {"frames": 3, "from": 0.8},
+  "cards": {"words": 4}
+}

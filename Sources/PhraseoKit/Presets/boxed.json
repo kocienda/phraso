@@ -1,0 +1,13 @@
+{
+  "phraseo": 1,
+  "name": "Boxed",
+  "font": "Inter-Black",
+  "size": 72,
+  "case": "asis",
+  "fill": "#FFFFFF",
+  "highlight": "#FFD91A",
+  "highlightScale": 1.08,
+  "position": [0, -400],
+  "box": {"color": "#000000BF", "pad": [28, 14], "radius": 18},
+  "cards": {"words": 4}
+}
