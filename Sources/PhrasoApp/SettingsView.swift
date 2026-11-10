@@ -71,7 +71,7 @@ final class MovieExportSettings: NSViewController {
     private let fcpxml = NSButton(checkboxWithTitle: "Final Cut Pro XML (.fcpxml)", target: nil, action: nil)
     private let reveal = NSButton(checkboxWithTitle: "Show the files in the Finder", target: nil, action: nil)
     private let codecNote = MovieExportSettings.note(), qualityNote = MovieExportSettings.note()
-    private let sizeNote = MovieExportSettings.note(), matteNote = MovieExportSettings.note()
+    private let sizeNote = MovieExportSettings.note()
 
     override func loadView() {
         codec.addItems(withTitles: Codec.allCases.map(\.label))
@@ -90,8 +90,6 @@ final class MovieExportSettings: NSViewController {
         }
         let slider = NSStackView(views: [sized(quality, 236, nil), percent])
         slider.spacing = 6
-        let rate = NSTextField(labelWithString: "Same as the video")
-        rate.textColor = .secondaryLabelColor
         let line = sized(NSBox(), 395, nil)
         line.boxType = .separator
         let also = NSStackView(views: [words, subtitles, fcpxml])
@@ -103,22 +101,20 @@ final class MovieExportSettings: NSViewController {
             [label("Format:"), codec], [NSGridCell.emptyContentView, codecNote],
             [label("Quality:"), slider], [NSGridCell.emptyContentView, qualityNote],
             [label("Size:"), size], [NSGridCell.emptyContentView, sizeNote],
-            [label("Frame Rate:"), rate], [NSGridCell.emptyContentView, Self.note("So every word changes on a frame of the footage.")],
-            [label("Background:"), matte], [NSGridCell.emptyContentView, matteNote],
+            [label("Background:"), matte],
             [NSGridCell.emptyContentView, line],
             [label("Also Write:"), also],
-            [NSGridCell.emptyContentView, Self.note("The transcript can be corrected and given back to the phraso command. The XML is a project holding the movie, to import.")],
             [label("After Export:"), reveal],
         ])
         grid.column(at: 0).xPlacement = .trailing
         grid.rowAlignment = .firstBaseline
         grid.rowSpacing = 5
         grid.columnSpacing = 8
-        for i in [1, 3, 5, 7, 9, 12] { grid.row(at: i).bottomPadding = 8 }
+        for i in [1, 3, 5, 6, 8] { grid.row(at: i).bottomPadding = 8 }
         // the line keeps its own space above and below
-        grid.row(at: 10).topPadding = 6
-        grid.row(at: 10).bottomPadding = 6
-        grid.row(at: 10).yPlacement = .center
+        grid.row(at: 7).topPadding = 6
+        grid.row(at: 7).bottomPadding = 6
+        grid.row(at: 7).yPlacement = .center
 
         let page = NSView()
         grid.translatesAutoresizingMaskIntoConstraints = false
@@ -166,9 +162,6 @@ final class MovieExportSettings: NSViewController {
             : "Scaled from the video's shape. Final Cut fits it to the project; a smaller movie exports sooner and looks softer."
         let m = ExportSettings.matte
         matte.selectItem(at: Matte.allCases.firstIndex(of: m) ?? 0)
-        matteNote.stringValue = m == .clear
-            ? "The cards over an alpha channel, which Final Cut reads as it is."
-            : "A solid colour behind the cards, for an editor or a site that does not read alpha."
         words.state = ExportSettings.words ? .on : .off
         subtitles.state = ExportSettings.subtitles ? .on : .off
         fcpxml.state = ExportSettings.fcpxml ? .on : .off
