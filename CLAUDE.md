@@ -1,8 +1,8 @@
 # Phraso
 
 A Mac app and command that make CapCut-style word-highlighted captions for Final Cut
-Pro: on-device transcription, cards drawn with Core Text, one HEVC-with-alpha movie,
-FCPXML placing it as a single connected clip. Grew out of `/u/vids/tools/captions.py`;
+Pro: on-device transcription, cards drawn with Core Text, one HEVC-with-alpha movie
+to drag onto the timeline as a single connected clip. Grew out of `/u/vids/tools/captions.py`;
 that repo keeps the record of what Final Cut's own title tools cannot do
 (`/u/vids/docs/captions.md`). This repo is the product.
 
@@ -44,7 +44,9 @@ Slow, once per change to the output:
 python3 Tools/fcp.py check /tmp/ph/ogl.fcpxml 00:00:06:16 00:00:06:19 00:00:07:05 --out /tmp/frames.png
 ```
 
-imports the file into Final Cut, opens the project and tiles viewer crops into one PNG.
+imports the file into Final Cut, opens the project and tiles viewer crops into one PNG
+(`--background` implies `--fcpxml`; a plain `make` writes no XML, because the product is
+the movie and an import leaves an event and a project behind).
 Needs Accessibility and Screen Recording for the host app and Final Cut's default
 layout. Each import adds an event, so test files get distinct `--name`s. Never ask the
 user to click through a check this can run.

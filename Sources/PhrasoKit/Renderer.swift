@@ -108,13 +108,14 @@ public struct Renderer {
     }
 
     /// Clear `ctx` and draw one card into it. `ctx` is width x height device pixels, origin bottom-left.
-    public func draw(_ step: RenderStep, into ctx: CGContext, grey: Bool = false, pop: CGFloat = 1) throws {
+    /// Over `background` if one is given (`grey`: mid grey, to look at).
+    public func draw(_ step: RenderStep, into ctx: CGContext, grey: Bool = false, pop: CGFloat = 1, background: CGColor? = nil) throws {
         let W = width, H = height, s = style
         ctx.saveGState()
         defer { ctx.restoreGState() }
         ctx.clear(CGRect(x: 0, y: 0, width: W, height: H))
-        if grey {
-            ctx.setFillColor(CGColor(gray: 0.5, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: W, height: H))
+        if let bg = background ?? (grey ? CGColor(gray: 0.5, alpha: 1) : nil) {
+            ctx.setFillColor(bg); ctx.fill(CGRect(x: 0, y: 0, width: W, height: H))
         }
         ctx.setAllowsAntialiasing(true); ctx.setShouldAntialias(true)
         ctx.interpolationQuality = .high

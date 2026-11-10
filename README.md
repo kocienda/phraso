@@ -1,8 +1,8 @@
 # Phraso
 
 Word-highlighted captions for Final Cut Pro, made on the Mac. A video goes in; a
-caption track comes out: one movie with an alpha channel and the FCPXML that drops
-it onto the timeline as a single connected clip. The spoken word is coloured and pops
+caption track comes out: one movie with an alpha channel, to drag onto the timeline
+as a single connected clip. The spoken word is coloured and pops
 in, the way the trending caption presets do, in any font, with rounded nested borders,
 a box, a shadow.
 
@@ -17,9 +17,15 @@ swift build -c release
 .build/release/phraso make talk.mov --style area
 ```
 
-writes `talk.captions.mov`, `talk.captions.fcpxml` and `talk.captions.words.json`
-beside the video. In Final Cut: File > Import > XML, open the project it creates,
-copy the connected clip, paste at the head of your edit.
+writes `talk.captions.mov` and `talk.captions.words.json` beside the video. In Final
+Cut, park the playhead on the first frame of the clip the captions belong to and drag
+the movie onto the timeline above it; it connects there, and Final Cut files it in the
+project's own event. Put the movie where it will stay first: Final Cut links it in
+place.
+
+`--fcpxml` also writes `talk.captions.fcpxml`, a project holding the movie over a gap.
+Importing it leaves an event and a project to clear away, so it is off unless asked for;
+it is what `Tools/fcp.py` opens to check the output.
 
 To fix a word, edit `talk.captions.words.json` and run again with `--words
 talk.captions.words.json`; the timings hold.
@@ -31,14 +37,19 @@ phraso style area --out mine.json                       # a preset to edit; then
 ```
 
 The app does the same with a preview over the footage, a style inspector and an
-editable transcript. It is document-based: a new document asks for its video (any
+editable transcript. After an Export the movie sits as a chip above the transcript, to
+drag from there onto the Final Cut timeline. It is document-based: a new document asks for its video (any
 movie or sound file AVFoundation opens), and saves as a `.phraso` package holding
 the corrected words, the style and a bookmark to the video. Build it with
 `Scripts/bundle-app.sh && open Phraso.app`, or open `Phraso.xcodeproj`.
 
 The movie is HEVC with alpha at quality 0.9 unless told otherwise: `--codec prores`
 and `--quality 0.5` to `1` on the command, Settings > Movie Export in the app. Its
-size and frame rate are always the video's own.
+frame rate is always the video's own; its size is too unless `--size 1080` scales it
+to that many pixels on its shorter side. `--matte green` (or `black`, `blue`) puts a
+solid colour behind the cards for an editor that does not read alpha, and `--srt`
+writes SubRip subtitles beside the movie, one per card. The app's Movie Export
+settings have each of these, and which files go beside the movie.
 
 ## Styles
 

@@ -15,9 +15,10 @@ struct TranscriptView: View {
                     ProgressView(value: doc.progress > 0 ? doc.progress : nil).controlSize(.small).frame(width: 100)
                     Text(doc.status).foregroundStyle(.secondary).font(.callout).lineLimit(1)
                 } else if let t = doc.transcript {
+                    if let out = doc.lastExport { ExportChip(movie: out.movie) }
                     Text("\(t.words.count) words").foregroundStyle(.secondary).font(.callout)
                 }
-                Button("Transcribe Again") { doc.retranscribe() }.disabled(doc.videoURL == nil || doc.isBusy)
+                Button("Re-transcribe") { doc.retranscribe() }.disabled(doc.videoURL == nil || doc.isBusy)
             }
             .padding(.horizontal, 12).padding(.vertical, 6)
             Divider()
@@ -43,6 +44,22 @@ struct TranscriptView: View {
                 Spacer()
             }
         }
+    }
+}
+
+/// The movie the last Export wrote, to drag straight onto the Final Cut timeline: dropped
+/// above a clip it connects there, with nothing to import first. It goes away at the next
+/// edit, when the movie no longer shows what the document does.
+struct ExportChip: View {
+    let movie: URL
+
+    var body: some View {
+        Label(movie.lastPathComponent, systemImage: "film")
+            .font(.callout).lineLimit(1)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.06)))
+            .onDrag { NSItemProvider(object: movie as NSURL) }
+            .help("Drag onto the Final Cut timeline, above the clip it captions")
     }
 }
 

@@ -1,3 +1,4 @@
+import AVFoundation
 import PhrasoKit
 import SwiftUI
 import UniformTypeIdentifiers
@@ -22,7 +23,12 @@ struct ContentView: View {
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             guard let p = providers.first else { return false }
             _ = p.loadObject(ofClass: URL.self) { url, _ in
-                if let u = url { Task { @MainActor in doc.load(u) } }
+                // the caption movie dragged from the title bar and let go over this window
+                // is on its way somewhere else, not a new video for this document
+                if let u = url { Task { @MainActor in
+                    let own = [doc.videoURL, doc.lastExport?.movie].compactMap { $0?.standardizedFileURL }
+                    if !own.contains(u.standardizedFileURL) { doc.load(u) }
+                } }
             }
             return true
         }
@@ -45,11 +51,15 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
+                // the icon beside the name, like a document's proxy icon: click to choose the
+                // video, drag to take the exported caption movie onto the Final Cut timeline
                 Button { doc.askingForVideo = true } label: { Label("Choose Video", systemImage: "film") }
-                    .help("Choose the video or sound file to caption (⇧⌘O)")
+                    .onDrag { doc.lastExport.map { NSItemProvider(object: $0.movie as NSURL) } ?? NSItemProvider() }
+                    .help(doc.lastExport == nil
+                          ? "Choose the video or sound file to caption (⇧⌘O). After an Export, drag from here to put the caption movie on the Final Cut timeline."
+                          : "Drag onto the Final Cut timeline to add \(doc.lastExport!.movie.lastPathComponent). Click to choose another video (⇧⌘O).")
             }
             ToolbarItemGroup(placement: .primaryAction) {
-                Button { doc.savePreset() } label: { Label("Save Preset", systemImage: "square.and.arrow.down") }
                 Button { doc.export() } label: { Label("Export", systemImage: "square.and.arrow.up") }
                     .disabled(doc.transcript == nil || doc.isBusy)
             }
@@ -84,69 +94,131 @@ extension ContentView {
     }
 }
 
-/// The footage with the caption drawn over it at the playhead, and the scrubber.
+/// The footage playing with the caption drawn over it at the playhead, and the media
+/// controls under it: the scrubber, then the playhead's time, the transport, the length.
 struct PreviewView: View {
     @EnvironmentObject var doc: Document
-    @State private var image: CGImage?
-    @State private var renderTask: Task<Void, Never>?
+    @State private var keys: Any?
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             GeometryReader { geo in
+                let fit = fitted(in: geo.size)
                 ZStack {
                     SwiftUI.Color.black
-                    if let img = image {
-                        Image(decorative: img, scale: 1).resizable().aspectRatio(contentMode: .fit)
-                    } else if doc.videoURL == nil {
+                    if doc.videoURL == nil {
                         VStack(spacing: 12) {
                             Image(systemName: "film.stack").font(.system(size: 48)).foregroundStyle(.secondary)
                             Text("Drop a video or a sound file here").foregroundStyle(.secondary)
                             Button("Choose Video…") { doc.askingForVideo = true }
                         }
+                    } else {
+                        if doc.hasVideo {
+                            PlayerLayerView(player: doc.player)
+                        } else {
+                            SwiftUI.Color(white: 0.45).frame(width: fit.width, height: fit.height)
+                        }
+                        if let img = doc.caption(frame: doc.frame, size: CGSize(width: (fit.width * 2).rounded(), height: (fit.height * 2).rounded())) {
+                            Image(decorative: img, scale: 2).resizable().frame(width: fit.width, height: fit.height)
+                        }
                     }
                 }
-                .onChange(of: previewKey) { _, _ in render(in: geo.size) }
-                .onAppear { render(in: geo.size) }
             }
-            HStack {
-                Text(timecode(doc.time)).monospacedDigit().frame(width: 90, alignment: .leading)
-                Slider(value: $doc.time, in: 0...max(doc.duration, 0.001))
-                    .disabled(doc.duration == 0)
-                Button { step(-1) } label: { Image(systemName: "backward.frame") }.disabled(doc.duration == 0)
-                Button { step(1) } label: { Image(systemName: "forward.frame") }.disabled(doc.duration == 0)
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
+            Divider()
+            controls
         }
+        .onAppear { keys = installKeys() }
+        .onDisappear { if let k = keys { NSEvent.removeMonitor(k) }; keys = nil }
     }
 
-    /// Anything that changes the picture.
-    private var previewKey: String {
-        "\(doc.time)|\(doc.style.hashValue)|\(doc.transcript?.words.count ?? -1)|\(doc.transcript.map { $0.words.map(\.text).joined() }?.hashValue ?? 0)|\(doc.media?.width ?? 0)"
+    private var controls: some View {
+        VStack(spacing: 2) {
+            Slider(value: $doc.time, in: 0...max(doc.duration, 0.001))
+                .controlSize(.small)
+            HStack(spacing: 0) {
+                Text(timecode(doc.time)).frame(width: 90, alignment: .leading)
+                Spacer()
+                HStack(spacing: 22) {
+                    transport("backward.end.fill", "Go to Start (Home)") { doc.toStart() }
+                    transport("backward.frame.fill", "Back One Frame (←)") { doc.step(-1) }
+                    transport(doc.isPlaying ? "pause.fill" : "play.fill", doc.isPlaying ? "Pause (Space)" : "Play (Space)", size: 20) { doc.togglePlay() }
+                        .frame(width: 24)
+                    transport("forward.frame.fill", "Forward One Frame (→)") { doc.step(1) }
+                    transport("forward.end.fill", "Go to End (End)") { doc.toEnd() }
+                }
+                Spacer()
+                Text(timecode(doc.duration)).foregroundStyle(.secondary).frame(width: 90, alignment: .trailing)
+            }
+            .font(.system(size: 12).monospacedDigit())
+        }
+        .disabled(doc.duration == 0)
+        .padding(.horizontal, 12).padding(.top, 6).padding(.bottom, 8)
     }
 
-    private func render(in size: CGSize) {
-        renderTask?.cancel()
+    private func transport(_ symbol: String, _ help: String, size: CGFloat = 14, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: size)).frame(height: 24)
+        }
+        .buttonStyle(.borderless)
+        .help(help)
+    }
+
+    /// The picture's frame inside the view: the video's shape, as large as fits.
+    private func fitted(in size: CGSize) -> CGSize {
         let aspect = CGFloat(doc.media?.width ?? 16) / CGFloat(doc.media?.height ?? 9)
-        var w = min(size.width, 1920), h = w / aspect
+        var w = size.width, h = w / aspect
         if h > size.height { h = size.height; w = h * aspect }
-        let px = CGSize(width: (w * 2).rounded(), height: (h * 2).rounded())
-        renderTask = Task {
-            let img = await doc.preview(at: doc.time, size: px)
-            if !Task.isCancelled { image = img }
+        return CGSize(width: w.rounded(), height: h.rounded())
+    }
+
+    /// Space plays and pauses, the arrows step a frame, Home and End go to the ends, the
+    /// way every player has them; but not while a field or a control has the keyboard.
+    private func installKeys() -> Any? {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [doc] e in
+            guard let w = e.window, w === doc.window, w.attachedSheet == nil,
+                  e.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,
+                  !(w.firstResponder is NSText), !(w.firstResponder is NSControl), doc.duration > 0
+            else { return e }
+            switch e.keyCode {
+            case 49: doc.togglePlay()
+            case 123: doc.step(-1)
+            case 124: doc.step(1)
+            case 115: doc.toStart()
+            case 119: doc.toEnd()
+            default: return e
+            }
+            return nil
         }
     }
 
-    private func step(_ n: Int) {
-        let fps = doc.frameRate.fps
-        doc.time = min(max(0, (doc.time * fps).rounded() / fps + Double(n) / fps), doc.duration)
-    }
-
+    /// Minutes, seconds and frames.
     private func timecode(_ t: Double) -> String {
         let fps = doc.frameRate.fps
         let f = Int((t * fps).rounded())
         let whole = Int(Double(f) / fps)
         return String(format: "%02d:%02d:%02d", whole / 60, whole % 60, f - Int(Double(whole) * fps))
+    }
+}
+
+/// The player's picture, fitted to the view the way the caption over it is.
+struct PlayerLayerView: NSViewRepresentable {
+    let player: AVPlayer
+
+    func makeNSView(context: Context) -> NSView {
+        let v = Host()
+        v.wantsLayer = true
+        v.playerLayer.player = player
+        v.playerLayer.videoGravity = .resizeAspect
+        v.playerLayer.backgroundColor = .black
+        return v
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {
+        (nsView as? Host)?.playerLayer.player = player
+    }
+
+    final class Host: NSView {
+        let playerLayer = AVPlayerLayer()
+        override func makeBackingLayer() -> CALayer { playerLayer }
     }
 }
 
@@ -185,9 +257,14 @@ struct WindowReader: NSViewRepresentable {
             done = true
             found(w)
             w.animationBehavior = .none
-            if AppDelegate.finishedRestoring { place(w) }
+            // SwiftUI centres the window and shows it after this, and only the next turn of
+            // the run loop can put it back; until then it is drawn fully transparent, so
+            // the stop in the middle of the screen is never seen
+            let placing = AppDelegate.finishedRestoring
+            if placing { w.alphaValue = 0; place(w) }
             DispatchQueue.main.async {
                 self.hold(w)
+                if placing { w.alphaValue = 1 }
                 w.initialFirstResponder = nil
                 w.makeFirstResponder(nil)
             }

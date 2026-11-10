@@ -41,6 +41,10 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
     @Published var presetName: String? = "area"
     @Published var presets: [(stem: String, style: Style)] = []
     @Published var time: Double = 0
+    /// True while the player runs; the playhead (`time`) then follows it.
+    @Published var isPlaying = false
+    /// False for a sound file, which the preview shows on grey.
+    @Published var hasVideo = true
     @Published var status: String = "Choose a video to caption."
     @Published var isBusy = false
     @Published var progress: Double = 0
@@ -74,13 +78,19 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
     var frameRate: FrameRate { media?.frameRate ?? .fps30 }
     var duration: Double { media?.duration ?? transcript?.duration ?? 0 }
 
-    private var frameCache: [Int: CGImage] = [:]
-    private var generator: AVAssetImageGenerator?
     private var bag: Set<AnyCancellable> = []
+
+    /// Plays the video under the preview; the caption is drawn over it (`caption`).
+    let player = AVPlayer()
+    private var timeObserver: Any?
+    private var endOfItem: AnyCancellable?
+    /// Set while the player moves the playhead, so the move is not sent back as a seek.
+    private var playerIsMoving = false
 
     init() {
         reloadPresets()
         watchForEdits()
+        watchPlayhead()
     }
 
     init(configuration: ReadConfiguration) throws {
@@ -104,6 +114,7 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
             askingForVideo = true
         }
         watchForEdits()
+        watchPlayhead()
     }
 
     func snapshot(contentType: UTType) throws -> Snapshot {
@@ -130,12 +141,14 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
         $style.dropFirst().sink { [weak self] new in
             guard let self, new != self.style else { return }
             let old = self.style
+            self.lastExport = nil
             self.undoManager?.registerUndo(withTarget: self) { d in d.style = old }
             self.undoManager?.setActionName("Change Style")
         }.store(in: &bag)
         $transcript.dropFirst().sink { [weak self] new in
             guard let self, new != self.transcript else { return }
             let old = self.transcript
+            self.lastExport = nil
             self.undoManager?.registerUndo(withTarget: self) { d in d.transcript = old }
             self.undoManager?.setActionName("Edit Transcript")
         }.store(in: &bag)
@@ -173,19 +186,20 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
         videoURL = url
         if !keepingTranscript { transcript = nil; time = 0 }
         lastExport = nil
-        frameCache = [:]
         let asset = AVURLAsset(url: url)
-        let gen = AVAssetImageGenerator(asset: asset)
-        gen.appliesPreferredTrackTransform = true
-        gen.maximumSize = CGSize(width: 1920, height: 1080)
-        gen.requestedTimeToleranceBefore = CMTime(value: 1, timescale: 10)
-        gen.requestedTimeToleranceAfter = CMTime(value: 1, timescale: 10)
-        generator = gen
+        pause()
+        let item = AVPlayerItem(asset: asset)
+        player.replaceCurrentItem(with: item)
+        endOfItem = NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification, object: item)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.reachedEnd() }
         isBusy = true
         status = "Reading \(url.lastPathComponent)…"
         Task {
             do {
+                hasVideo = !(try await asset.loadTracks(withMediaType: .video)).isEmpty
                 media = try await MediaInfo.probe(url)
+                seekPlayer(to: time)
                 if keepingTranscript, let t = transcript {
                     status = "\(t.words.count) words."
                 } else {
@@ -229,39 +243,100 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
 
     // MARK: preview
 
-    /// The video frame nearest `t`, scaled to fit 1920 wide, from a small cache.
-    func footage(at t: Double) async -> CGImage? {
-        guard let gen = generator else { return nil }
-        let key = Int(t * 10)
-        if let c = frameCache[key] { return c }
-        let img = try? await gen.image(at: CMTime(seconds: t, preferredTimescale: 600)).image
-        if let i = img {
-            if frameCache.count > 200 { frameCache.removeAll() }
-            frameCache[key] = i
-        }
+    /// The frame under the playhead.
+    var frame: Int { Int((time * frameRate.fps).rounded()) }
+
+    private var planCache: (style: Style, transcript: Transcript?, frameRate: FrameRate, plan: (steps: [RenderStep], frames: Int))?
+    private var captionCache: (key: [Int], step: RenderStep, style: Style, image: CGImage?)?
+
+    /// The plan, worked out again only when the words, the style or the rate change: the
+    /// playhead asks for it on every frame of playback.
+    private var currentPlan: (steps: [RenderStep], frames: Int) {
+        if let c = planCache, c.style == style, c.transcript == transcript, c.frameRate == frameRate { return c.plan }
+        let p = plan
+        planCache = (style, transcript, frameRate, p)
+        return p
+    }
+
+    /// The caption on frame `f`, transparent, `size` pixels; nil when no card shows.
+    /// A card holds for many frames, so the last picture is kept and drawn again only
+    /// when the step, the pop, the size or the style changes.
+    func caption(frame f: Int, size: CGSize) -> CGImage? {
+        let w = Int(size.width), h = Int(size.height)
+        guard w > 0, h > 0 else { return nil }
+        let steps = currentPlan.steps
+        let renderer = Renderer(style: style, width: w, height: h)
+        var cursor = 0
+        guard let (i, into) = MovieWriter.step(at: f, in: steps, cursor: &cursor) else { return nil }
+        let pop = renderer.popScale(frameInStep: into)
+        let key = [pop == 1 ? -1 : into, w, h]
+        if let c = captionCache, c.key == key, c.step == steps[i], c.style == style { return c.image }
+        let ctx = renderer.makeContext()
+        try? renderer.draw(steps[i], into: ctx, pop: pop)
+        let img = ctx.makeImage()
+        captionCache = (key, steps[i], style, img)
         return img
     }
 
-    /// The caption picture at `t`, at preview size, composited over the footage if there is any.
-    func preview(at t: Double, size: CGSize) async -> CGImage? {
-        let (steps, frames) = plan
-        let w = Int(size.width), h = Int(size.height)
-        guard w > 0, h > 0 else { return nil }
-        let renderer = Renderer(style: style, width: w, height: h)
-        let writer = MovieWriter(renderer: renderer, frameRate: frameRate, frames: frames)
-        let f = Int((t * frameRate.fps).rounded())
-        let footage = await footage(at: t)
-        let ctx = renderer.makeContext()
-        if let bg = footage {
-            ctx.draw(bg, in: CGRect(x: 0, y: 0, width: w, height: h))
-        } else {
-            ctx.setFillColor(CGColor(gray: 0.45, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+    // MARK: playback
+
+    /// A playhead moved by anything but the player (the scrubber, a word, a step) seeks it.
+    private func watchPlayhead() {
+        $time.dropFirst().sink { [weak self] t in
+            guard let self, !self.playerIsMoving else { return }
+            self.seekPlayer(to: t)
+        }.store(in: &bag)
+        timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 60), queue: .main) { [weak self] t in
+            MainActor.assumeIsolated {
+                guard let self, self.isPlaying else { return }
+                self.playerIsMoving = true
+                self.time = min(max(t.seconds, 0), self.duration)
+                self.playerIsMoving = false
+            }
         }
-        if let card = try? writer.frame(f, of: steps) {
-            ctx.draw(card, in: CGRect(x: 0, y: 0, width: w, height: h))
-        }
-        return ctx.makeImage()
     }
+
+    private func seekPlayer(to t: Double) {
+        guard player.currentItem != nil else { return }
+        player.seek(to: CMTime(seconds: t, preferredTimescale: 60000), toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    func togglePlay() { isPlaying ? pause() : play() }
+
+    func play() {
+        guard player.currentItem != nil, duration > 0 else { return }
+        // at the end, play from the start
+        if frame >= Int((duration * frameRate.fps).rounded()) - 1 { time = 0 }
+        isPlaying = true
+        player.play()
+    }
+
+    /// Stop, with the playhead on the frame it stopped at.
+    func pause() {
+        guard isPlaying else { return }
+        player.pause()
+        isPlaying = false
+        time = Double(frame) / frameRate.fps
+    }
+
+    private func reachedEnd() {
+        guard isPlaying else { return }
+        player.pause()
+        isPlaying = false
+        playerIsMoving = true
+        time = duration
+        playerIsMoving = false
+    }
+
+    /// Move the playhead `n` frames, stopping play.
+    func step(_ n: Int) {
+        pause()
+        let last = Int((duration * frameRate.fps).rounded())
+        time = Double(min(max(0, frame + n), last)) / frameRate.fps
+    }
+
+    func toStart() { pause(); time = 0 }
+    func toEnd() { pause(); time = duration }
 
     /// The step under the playhead, for highlighting the transcript.
     var currentWordIndex: Int? {
@@ -273,8 +348,10 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
 
     func export() {
         guard let url = videoURL, let t = transcript else { return }
+        pause()
+        let xml = ExportSettings.fcpxml
         let panel = NSSavePanel()
-        panel.message = "Location for movie and Final Cut XML file"
+        panel.message = xml ? "Location for movie and Final Cut XML file" : "Location for the caption movie"
         panel.nameFieldStringValue = url.deletingPathExtension().lastPathComponent + ".captions"
         panel.directoryURL = url.deletingLastPathComponent()
         panel.allowedContentTypes = [.quickTimeMovie]
@@ -285,6 +362,12 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
         job.transcript = t
         job.codec = ExportSettings.codec
         job.quality = ExportSettings.quality
+        job.lines = ExportSettings.lines
+        job.matte = ExportSettings.matte
+        job.writesWords = ExportSettings.words
+        job.writesSubtitles = ExportSettings.subtitles
+        job.writesFCPXML = xml
+        let reveal = ExportSettings.reveal
         isBusy = true
         progress = 0
         status = "Rendering…"
@@ -298,9 +381,11 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
                 }
                 await MainActor.run {
                     self.lastExport = outputs
-                    self.status = "Wrote \(outputs.fcpxml.lastPathComponent). Import it into Final Cut (File > Import > XML)."
+                    self.status = "Wrote \(outputs.movie.lastPathComponent). Drag it onto the Final Cut timeline."
                     self.isBusy = false
-                    NSWorkspace.shared.activateFileViewerSelecting([outputs.fcpxml, outputs.movie])
+                    if reveal {
+                        NSWorkspace.shared.activateFileViewerSelecting([outputs.movie, outputs.fcpxml, outputs.subtitles, outputs.words].compactMap { $0 })
+                    }
                 }
             } catch {
                 await MainActor.run { self.error = "\(error)"; self.isBusy = false; self.status = "Export failed." }

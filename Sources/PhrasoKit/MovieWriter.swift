@@ -18,6 +18,32 @@ public enum Codec: String, CaseIterable, Sendable {
     }
 }
 
+/// What fills the frame behind the cards: nothing, so the movie carries an alpha channel,
+/// or a solid colour for an editor or a site that does not read alpha, to key out.
+public enum Matte: String, CaseIterable, Sendable {
+    case clear, black, green, blue
+
+    /// The name a person picks it by.
+    public var label: String {
+        switch self {
+        case .clear: return "Transparent"
+        case .black: return "Black"
+        case .green: return "Green Screen"
+        case .blue: return "Blue Screen"
+        }
+    }
+
+    /// The fill, in sRGB; nil for none. Green and blue are the chroma-key colours.
+    public var color: CGColor? {
+        switch self {
+        case .clear: return nil
+        case .black: return CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 1)
+        case .green: return CGColor(srgbRed: 0, green: 177 / 255, blue: 64 / 255, alpha: 1)
+        case .blue: return CGColor(srgbRed: 0, green: 71 / 255, blue: 187 / 255, alpha: 1)
+        }
+    }
+}
+
 public enum MovieError: Error, CustomStringConvertible {
     case writer(String)
     public var description: String {
@@ -33,11 +59,12 @@ public struct MovieWriter {
     /// HEVC's quality, 0...1; the alpha channel is kept a little above it, since a soft
     /// edge shows before a soft fill does. ProRes 4444 has no such dial.
     public var quality: Double
+    public var matte: Matte
 
     public static let defaultQuality = 0.9
 
-    public init(renderer: Renderer, frameRate: FrameRate, frames: Int, codec: Codec = .hevc, quality: Double = MovieWriter.defaultQuality) {
-        self.renderer = renderer; self.frameRate = frameRate; self.frames = frames; self.codec = codec
+    public init(renderer: Renderer, frameRate: FrameRate, frames: Int, codec: Codec = .hevc, quality: Double = MovieWriter.defaultQuality, matte: Matte = .clear) {
+        self.renderer = renderer; self.frameRate = frameRate; self.frames = frames; self.codec = codec; self.matte = matte
         self.quality = min(max(quality, 0), 1)
     }
 
@@ -98,8 +125,12 @@ public struct MovieWriter {
             let ctx = CGContext(data: CVPixelBufferGetBaseAddress(buf), width: W, height: H, bitsPerComponent: 8,
                                 bytesPerRow: CVPixelBufferGetBytesPerRow(buf), space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                 bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)!
-            if let st = step { try renderer.draw(st, into: ctx, pop: pop) }
-            else { ctx.clear(CGRect(x: 0, y: 0, width: W, height: H)) }
+            if let st = step {
+                try renderer.draw(st, into: ctx, pop: pop, background: matte.color)
+            } else {
+                ctx.clear(CGRect(x: 0, y: 0, width: W, height: H))
+                if let c = matte.color { ctx.setFillColor(c); ctx.fill(CGRect(x: 0, y: 0, width: W, height: H)) }
+            }
             return buf
         }
 

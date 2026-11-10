@@ -1,5 +1,6 @@
-// A job: one video in, one caption track out. The video's own size and frame rate set
-// the timeline; the transcript comes from the file or from a words.json beside it.
+// A job: one video in, one caption track out, as a movie to drag onto the Final Cut
+// timeline. The video's own size and frame rate set the timeline; the transcript comes
+// from the file or from a words.json beside it.
 
 import Foundation
 
@@ -23,6 +24,17 @@ public struct Job: Sendable {
     /// HEVC's quality, 0...1 (`MovieWriter.quality`).
     public var quality: Double = MovieWriter.defaultQuality
     public var background: Background = .gap
+    /// What fills the frame behind the cards (`Matte`); clear leaves the alpha channel.
+    public var matte: Matte = .clear
+    /// The movie's shorter side in pixels, scaled from the video's size; nil for the
+    /// video's own size. Final Cut fits the track to the project either way.
+    public var lines: Int?
+    /// Also write the transcript beside the movie, to correct and run again with `words`.
+    public var writesWords = true
+    /// Also write SubRip subtitles (`Subtitles`), one cue per card.
+    public var writesSubtitles = false
+    /// Also write the FCPXML that places the movie in a project of its own (`FCPXML`).
+    public var writesFCPXML = false
 
     public init(video: URL, style: Style, outputDirectory: URL? = nil, name: String? = nil, words: URL? = nil) {
         self.video = video
@@ -35,11 +47,24 @@ public struct Job: Sendable {
     public var movieURL: URL { outputDirectory.appendingPathComponent(name + ".mov") }
     public var fcpxmlURL: URL { outputDirectory.appendingPathComponent(name + ".fcpxml") }
     public var wordsURL: URL { outputDirectory.appendingPathComponent(name + ".words.json") }
+    public var subtitlesURL: URL { outputDirectory.appendingPathComponent(name + ".srt") }
+
+    /// The movie's size for a video of `width` × `height`: the video's own, or scaled so
+    /// its shorter side is `lines`, with both sides even, as the encoders want.
+    public static func size(width: Int, height: Int, lines: Int?) -> (width: Int, height: Int) {
+        guard let l = lines, l > 0, l != min(width, height) else { return (width, height) }
+        let s = Double(l) / Double(min(width, height))
+        func even(_ v: Int) -> Int { max(2, Int((Double(v) * s / 2).rounded()) * 2) }
+        return (even(width), even(height))
+    }
 
     public struct Outputs: Sendable {
         public var movie: URL
-        public var fcpxml: URL
-        public var words: URL
+        /// Nil unless the job was asked for one.
+        public var fcpxml: URL?
+        /// Nil unless the job was asked for them.
+        public var words: URL?
+        public var subtitles: URL?
         public var media: MediaInfo
         public var transcript: Transcript
         public var steps: [RenderStep]
@@ -68,19 +93,28 @@ public struct Job: Sendable {
             transcript = try await Transcriber.transcribe(video, locale: locale)
         }
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
-        if self.transcript != nil || words == nil || words!.standardizedFileURL != wordsURL.standardizedFileURL {
+        if writesWords, self.transcript != nil || words == nil || words!.standardizedFileURL != wordsURL.standardizedFileURL {
             try transcript.write(to: wordsURL)
         }
         let (steps, frames) = Job.plan(transcript, style: style, frameRate: media.frameRate)
         progress?(.rendering, 0)
-        let renderer = Renderer(style: style, width: media.width, height: media.height)
-        let writer = MovieWriter(renderer: renderer, frameRate: media.frameRate, frames: frames, codec: codec, quality: quality)
+        let size = Job.size(width: media.width, height: media.height, lines: lines)
+        let renderer = Renderer(style: style, width: size.width, height: size.height)
+        let writer = MovieWriter(renderer: renderer, frameRate: media.frameRate, frames: frames, codec: codec, quality: quality, matte: matte)
         try writer.write(steps, to: movieURL) { done, total in progress?(.rendering, Double(done) / Double(max(total, 1))) }
         progress?(.writing, 1)
-        let xml = FCPXML.document(name: name, movie: movieURL, frames: frames, frameRate: media.frameRate,
-                                  width: media.width, height: media.height, background: background)
-        try xml.write(to: fcpxmlURL, atomically: true, encoding: .utf8)
+        if writesSubtitles {
+            let srt = Subtitles.srt(transcript, rules: style.cards, frameRate: media.frameRate)
+            try srt.write(to: subtitlesURL, atomically: true, encoding: .utf8)
+        }
+        if writesFCPXML {
+            let xml = FCPXML.document(name: name, movie: movieURL, frames: frames, frameRate: media.frameRate,
+                                      width: media.width, height: media.height, movieWidth: size.width, movieHeight: size.height,
+                                      background: background)
+            try xml.write(to: fcpxmlURL, atomically: true, encoding: .utf8)
+        }
         progress?(.done, 1)
-        return Outputs(movie: movieURL, fcpxml: fcpxmlURL, words: wordsURL, media: media, transcript: transcript, steps: steps, frames: frames)
+        return Outputs(movie: movieURL, fcpxml: writesFCPXML ? fcpxmlURL : nil, words: writesWords ? wordsURL : nil,
+                       subtitles: writesSubtitles ? subtitlesURL : nil, media: media, transcript: transcript, steps: steps, frames: frames)
     }
 }

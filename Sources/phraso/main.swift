@@ -1,8 +1,14 @@
 // phraso: word-highlighted captions for Final Cut Pro, from the command line.
 //
 //   phraso make <video> [--style area] [--out dir] [--name N] [--words words.json]
-//                        [--codec hevc|prores] [--quality 0.9] [--background gap|grey] [--locale en-US]
-//       video in; <name>.mov, <name>.fcpxml and <name>.words.json out, beside the video
+//                        [--codec hevc|prores] [--quality 0.9] [--locale en-US]
+//                        [--size 1080] [--matte clear|black|green|blue] [--srt] [--fcpxml] [--background gap|grey]
+//       video in; <name>.mov and <name>.words.json out, beside the video. Drag the movie
+//       onto the Final Cut timeline. --fcpxml also writes <name>.fcpxml, a project holding
+//       the movie over a gap; --background grey puts it over grey instead and implies --fcpxml
+//       --size scales the movie to that many pixels on its shorter side (the video's own
+//       size otherwise); --matte fills behind the cards for an editor without alpha;
+//       --srt also writes <name>.srt, one subtitle per card
 //   phraso transcribe <media> [--out words.json] [--locale en-US]
 //   phraso preview <video|words.json> [--style area] (--step N | --frame F | --time S) [--out card.png]
 //       one card (or one timeline frame, mid-pop) on grey, to look at
@@ -66,7 +72,7 @@ argv.removeFirst()
 
 switch cmd {
 case "make":
-    let a = Args(argv, valued: ["style", "out", "name", "words", "codec", "quality", "background", "locale"])
+    let a = Args(argv, valued: ["style", "out", "name", "words", "codec", "quality", "background", "locale", "size", "matte"])
     guard let video = a.positional.first else { usage() }
     var job = Job(video: URL(fileURLWithPath: video), style: styleArg(a),
                   outputDirectory: a["out"].map { URL(fileURLWithPath: $0, isDirectory: true) },
@@ -74,6 +80,10 @@ case "make":
     if let c = a["codec"] { guard let cc = Codec(rawValue: c) else { fail("codec is hevc or prores") }; job.codec = cc }
     if let q = a["quality"] { guard let qq = Double(q), (0...1).contains(qq) else { fail("quality is 0 to 1") }; job.quality = qq }
     if let b = a["background"] { guard let bb = Background(rawValue: b) else { fail("background is gap or grey") }; job.background = bb }
+    job.writesFCPXML = a.flags.contains("fcpxml") || a["background"] != nil
+    if let s = a["size"] { guard let ss = Int(s), ss >= 16 else { fail("size is the movie's shorter side in pixels, like 1080") }; job.lines = ss }
+    if let m = a["matte"] { guard let mm = Matte(rawValue: m) else { fail("matte is clear, black, green or blue") }; job.matte = mm }
+    job.writesSubtitles = a.flags.contains("srt")
     if let l = a["locale"] { job.locale = l }
     runAsync {
         final class Box: @unchecked Sendable { var last: Phase? = nil }
@@ -86,8 +96,9 @@ case "make":
         let m = out.media
         print("\(out.transcript.words.count) words -> \(out.steps.count) steps, \(out.frames) frames at \(m.frameRate), \(m.width)x\(m.height), \(Int(Date().timeIntervalSince(t0)))s")
         print(out.movie.path)
-        print(out.fcpxml.path)
-        print(out.words.path)
+        if let x = out.fcpxml { print(x.path) }
+        if let s = out.subtitles { print(s.path) }
+        if let w = out.words { print(w.path) }
     }
 
 case "transcribe":
