@@ -33,6 +33,8 @@
 			<string>Phraso Project</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
+			<key>NSDocumentClass</key>
+			<string>PhrasoDocument</string>
 			<key>LSHandlerRank</key>
 			<string>Owner</string>
 			<key>LSTypeIsPackage</key>

@@ -65,8 +65,9 @@ the first time they are missing, so they can be edited or deleted like your own.
   `MovieWriter` (every frame into HEVC-with-alpha or ProRes 4444), `FCPXML`, `Job`
   (video in, track out), `Timing` (rational frame rates from the video).
 - `Sources/phraso` — the command.
-- `Sources/PhrasoApp` — the SwiftUI app. `Phraso.xcodeproj` builds it as an app target
-  over the package; `Scripts/bundle-app.sh` does the same with SwiftPM alone. Both use
+- `Sources/PhrasoApp` — the app, in AppKit: an `NSDocument`, its window controller, a menu
+  bar built in code, and views laid out in code. `Phraso.xcodeproj` builds it as an app
+  target over the package; `Scripts/bundle-app.sh` does the same with SwiftPM alone. Both use
   `App/Info.plist` and `App/AppIcon.icns` (drawn by `Scripts/make-icon.sh`).
 - `Tests/PhrasoKitTests` — cards, styles, rendering, the movie, the FCPXML.
 - `Tools/fcp.py` — drives Final Cut through System Events and screen capture to import

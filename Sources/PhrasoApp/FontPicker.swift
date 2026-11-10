@@ -3,7 +3,6 @@
 // a PostScript name; the mapping to and from family and face happens here.
 
 import AppKit
-import SwiftUI
 
 enum Fonts {
     static let families: [String] = NSFontManager.shared.availableFontFamilies
@@ -42,146 +41,158 @@ enum Fonts {
     }
 }
 
-/// Family, style and size, bound to the style's PostScript name and size.
-struct FontPicker: View {
-    @Binding var font: String
-    @Binding var size: CGFloat
+/// Family, style and size, reading and writing the style's PostScript name and size.
+final class FontPicker: NSView, Refreshing {
+    private let get: () -> (font: String, size: CGFloat)
+    private let setFont: (String) -> Void
+    private let family = FamilyMenu()
+    private let face = FacePopUp()
+    private let size: ValueField
+    private var font = ""
+
+    init(get: @escaping () -> (font: String, size: CGFloat), setFont: @escaping (String) -> Void, size: ValueField) {
+        self.get = get
+        self.setFont = setFont
+        self.size = size
+        super.init(frame: .zero)
+        family.picked = { [weak self] fam in self?.pickFamily(fam) }
+        face.picked = { [weak self] ps in self?.setFont(ps) }
+        for v in [family, face, size] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(v)
+        }
+        NSLayoutConstraint.activate([
+            family.topAnchor.constraint(equalTo: topAnchor),
+            family.leadingAnchor.constraint(equalTo: leadingAnchor),
+            family.trailingAnchor.constraint(equalTo: trailingAnchor),
+            family.heightAnchor.constraint(equalToConstant: Pane.control),
+            face.topAnchor.constraint(equalTo: family.bottomAnchor, constant: Pane.rowGap),
+            face.leadingAnchor.constraint(equalTo: leadingAnchor),
+            face.heightAnchor.constraint(equalToConstant: Pane.control),
+            face.bottomAnchor.constraint(equalTo: bottomAnchor),
+            size.centerYAnchor.constraint(equalTo: face.centerYAnchor),
+            size.leadingAnchor.constraint(equalTo: face.trailingAnchor, constant: 8),
+            size.trailingAnchor.constraint(equalTo: trailingAnchor),
+        ])
+        sized(self, Pane.content, nil)
+        refresh()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     private var resolved: (family: String, face: String)? { Fonts.resolve(font) }
 
-    /// The face menu's selection: the style's own name when the font manager lists it,
-    /// else the member with the same face name ("Anton" is listed as "Anton-Regular").
-    private var faceSelection: String {
-        guard let r = resolved else { return font }
-        let fs = Fonts.faces(of: r.family)
-        return (fs.first { $0.ps == font } ?? fs.first { $0.face == r.face } ?? fs.first)?.ps ?? font
+    private func pickFamily(_ fam: String) {
+        if let ps = Fonts.member(of: fam, like: resolved?.face ?? "Regular") {
+            setFont(ps)
+            Fonts.noteUsed(fam)
+        }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: Pane.rowGap) {
-            FamilyMenu(family: Binding(
-                get: { resolved?.family ?? font },
-                set: { fam in
-                    if let ps = Fonts.member(of: fam, like: resolved?.face ?? "Regular") {
-                        font = ps
-                        Fonts.noteUsed(fam)
-                    }
-                }), missing: resolved == nil ? font : nil)
-                .frame(width: Pane.content, height: Pane.control)
-            HStack(spacing: 8) {
-                FacePopUp(faces: resolved.map { Fonts.faces(of: $0.family) } ?? [(font, "Not installed")],
-                          selection: Binding(get: { faceSelection }, set: { font = $0 }))
-                    .disabled(resolved == nil)
-                    .frame(height: Pane.control)
-                ValueField(value: $size, in: 8...400, width: 55, suffix: "pt")
-            }
-            .frame(width: Pane.content)
-        }
+    func refresh() {
+        size.refresh()
+        let now = get().font
+        guard now != font || family.recents != Fonts.recents else { return }
+        font = now
+        let r = resolved
+        family.show(family: r?.family ?? font, missing: r == nil ? font : nil)
+        // the face menu's selection: the style's own name when the font manager lists it,
+        // else the member with the same face name ("Anton" is listed as "Anton-Regular")
+        let faces = r.map { Fonts.faces(of: $0.family) } ?? [(font, "Not installed")]
+        let selection = r.map { r in (faces.first { $0.ps == font } ?? faces.first { $0.face == r.face } ?? faces.first)?.ps ?? font } ?? font
+        face.show(faces: faces, selection: selection)
+        face.isEnabled = r != nil
     }
 }
 
 /// The face pop-up for one family, full width like Keynote's.
-struct FacePopUp: NSViewRepresentable {
-    var faces: [(ps: String, face: String)]
-    @Binding var selection: String
+final class FacePopUp: NSPopUpButton {
+    var picked: (String) -> Void = { _ in }
 
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    func makeNSView(context: Context) -> NSPopUpButton {
-        let pop = NSPopUpButton(frame: .zero, pullsDown: false)
-        pop.target = context.coordinator
-        pop.action = #selector(Coordinator.pick(_:))
-        pop.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        return pop
+    init() {
+        super.init(frame: .zero, pullsDown: false)
+        target = self
+        action = #selector(pick(_:))
+        setContentHuggingPriority(.defaultLow, for: .horizontal)
     }
 
-    func updateNSView(_ pop: NSPopUpButton, context: Context) {
-        context.coordinator.parent = self
-        if pop.itemArray.map({ $0.representedObject as? String }) != faces.map({ Optional($0.ps) }) {
-            pop.removeAllItems()
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func show(faces: [(ps: String, face: String)], selection: String) {
+        if itemArray.map({ $0.representedObject as? String }) != faces.map({ Optional($0.ps) }) {
+            removeAllItems()
             for f in faces {
                 let it = NSMenuItem(title: f.face, action: nil, keyEquivalent: "")
                 it.representedObject = f.ps
-                pop.menu?.addItem(it)
+                menu?.addItem(it)
             }
         }
-        if let i = faces.firstIndex(where: { $0.ps == selection }) { pop.selectItem(at: i) }
+        if let i = faces.firstIndex(where: { $0.ps == selection }) { selectItem(at: i) }
     }
 
-    final class Coordinator: NSObject {
-        var parent: FacePopUp
-        init(_ p: FacePopUp) { parent = p }
-        @objc func pick(_ pop: NSPopUpButton) {
-            if let ps = pop.selectedItem?.representedObject as? String { parent.selection = ps }
-        }
+    @objc private func pick(_ sender: Any?) {
+        if let ps = selectedItem?.representedObject as? String { picked(ps) }
     }
 }
 
 /// The family pop-up: each family in its own face, the recently used ones first.
-struct FamilyMenu: NSViewRepresentable {
-    @Binding var family: String
-    /// A PostScript name no installed font answers to; shown as the current item.
-    var missing: String?
+final class FamilyMenu: NSPopUpButton {
+    var picked: (String) -> Void = { _ in }
+    private(set) var recents: [String] = []
 
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    func makeNSView(context: Context) -> NSPopUpButton {
-        let pop = NSPopUpButton(frame: .zero, pullsDown: false)
-        pop.target = context.coordinator
-        pop.action = #selector(Coordinator.pick(_:))
-        pop.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        context.coordinator.rebuild(pop, recents: Fonts.recents)
-        return pop
+    init() {
+        super.init(frame: .zero, pullsDown: false)
+        target = self
+        action = #selector(pick(_:))
+        setContentHuggingPriority(.defaultLow, for: .horizontal)
+        rebuild(recents: Fonts.recents)
     }
 
-    func updateNSView(_ pop: NSPopUpButton, context: Context) {
-        context.coordinator.parent = self
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// Shows `family`, or `missing`, a PostScript name no installed font answers to, as
+    /// the current item.
+    func show(family: String, missing: String?) {
         let recents = Fonts.recents
-        if recents != context.coordinator.recents { context.coordinator.rebuild(pop, recents: recents) }
+        if recents != self.recents { rebuild(recents: recents) }
         if let m = missing {
-            if pop.item(withTitle: m) == nil {
+            if item(withTitle: m) == nil {
                 let item = NSMenuItem(title: m, action: nil, keyEquivalent: "")
                 item.attributedTitle = NSAttributedString(string: m, attributes: [.foregroundColor: NSColor.systemRed, .font: NSFont.menuFont(ofSize: 13)])
                 item.representedObject = m
-                pop.menu?.insertItem(item, at: 0)
+                menu?.insertItem(item, at: 0)
             }
-            pop.selectItem(withTitle: m)
-        } else if let i = pop.itemArray.firstIndex(where: { ($0.representedObject as? String) == family && !$0.isSeparatorItem }) {
-            pop.selectItem(at: i)
+            selectItem(withTitle: m)
+        } else if let i = itemArray.firstIndex(where: { ($0.representedObject as? String) == family && !$0.isSeparatorItem }) {
+            selectItem(at: i)
         }
         // the button names the family in the system font, as Keynote's does; only the
         // menu draws each family in its own face
-        if let cell = pop.cell as? NSPopUpButtonCell {
+        if let cell = cell as? NSPopUpButtonCell {
             cell.usesItemFromMenu = false
             cell.menuItem = NSMenuItem(title: missing ?? family, action: nil, keyEquivalent: "")
         }
     }
 
-    final class Coordinator: NSObject {
-        var parent: FamilyMenu
-        var recents: [String] = []
-        init(_ p: FamilyMenu) { parent = p }
+    private func rebuild(recents: [String]) {
+        self.recents = recents
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        for fam in recents { menu.addItem(item(fam)) }
+        if !recents.isEmpty { menu.addItem(.separator()) }
+        for fam in Fonts.families { menu.addItem(item(fam)) }
+        self.menu = menu
+    }
 
-        func rebuild(_ pop: NSPopUpButton, recents: [String]) {
-            self.recents = recents
-            let menu = NSMenu()
-            menu.autoenablesItems = false
-            for fam in recents { menu.addItem(item(fam)) }
-            if !recents.isEmpty { menu.addItem(.separator()) }
-            for fam in Fonts.families { menu.addItem(item(fam)) }
-            pop.menu = menu
-        }
+    private func item(_ fam: String) -> NSMenuItem {
+        let it = NSMenuItem(title: fam, action: nil, keyEquivalent: "")
+        let f = (Fonts.member(of: fam, like: "Regular")).flatMap { NSFont(name: $0, size: 15) } ?? NSFont.menuFont(ofSize: 15)
+        it.attributedTitle = NSAttributedString(string: fam, attributes: [.font: f])
+        it.representedObject = fam
+        return it
+    }
 
-        private func item(_ fam: String) -> NSMenuItem {
-            let it = NSMenuItem(title: fam, action: nil, keyEquivalent: "")
-            let f = (Fonts.member(of: fam, like: "Regular")).flatMap { NSFont(name: $0, size: 15) } ?? NSFont.menuFont(ofSize: 15)
-            it.attributedTitle = NSAttributedString(string: fam, attributes: [.font: f])
-            it.representedObject = fam
-            return it
-        }
-
-        @objc func pick(_ pop: NSPopUpButton) {
-            if let fam = pop.selectedItem?.representedObject as? String, Fonts.families.contains(fam) { parent.family = fam }
-        }
+    @objc private func pick(_ sender: Any?) {
+        if let fam = selectedItem?.representedObject as? String, Fonts.families.contains(fam) { picked(fam) }
     }
 }

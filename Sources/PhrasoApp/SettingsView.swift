@@ -1,5 +1,5 @@
+import AppKit
 import PhrasoKit
-import SwiftUI
 
 /// What the app remembers between documents. One topic so far: what an Export writes.
 /// Each value here is read with the same default its control shows before it is touched.
@@ -31,96 +31,163 @@ enum ExportSettings {
     ]
 }
 
-/// The Settings window (⌘,): a topic per tab.
-struct SettingsView: View {
-    var body: some View {
-        TabView {
-            MovieExportSettings()
-                .tabItem { Label("Movie Export", systemImage: "film") }
-        }
-        .frame(width: 560)
+/// The Settings window (⌘,): a topic per tab in its toolbar, each one a page.
+final class SettingsWindowController: NSWindowController {
+    @MainActor static let shared = SettingsWindowController()
+
+    private init() {
+        let tabs = NSTabViewController()
+        tabs.tabStyle = .toolbar
+        let page = MovieExportSettings()
+        page.title = "Movie Export"  // the window takes the selected page's title
+        let item = NSTabViewItem(viewController: page)
+        item.label = "Movie Export"
+        item.image = NSImage(systemSymbolName: "film", accessibilityDescription: nil)
+        tabs.addTabViewItem(item)
+        let w = NSWindow(contentViewController: tabs)
+        w.styleMask = [.titled, .closable]
+        w.toolbarStyle = .preference
+        w.animationBehavior = .none
+        super.init(window: w)
+        w.center()
+        w.setFrameAutosaveName("Settings")
     }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 }
 
 /// What an Export writes: the caption movie's format, size and background, and the
 /// files that go beside it. Its frame rate is always the video's own, so every word
 /// changes on a frame of the footage.
-struct MovieExportSettings: View {
-    @AppStorage(ExportSettings.codecKey) private var codec = Codec.hevc
-    @AppStorage(ExportSettings.qualityKey) private var quality = MovieWriter.defaultQuality
-    @AppStorage(ExportSettings.linesKey) private var lines = 0
-    @AppStorage(ExportSettings.matteKey) private var matte = Matte.clear
-    @AppStorage(ExportSettings.wordsKey) private var words = true
-    @AppStorage(ExportSettings.subtitlesKey) private var subtitles = false
-    @AppStorage(ExportSettings.fcpxmlKey) private var fcpxml = false
-    @AppStorage(ExportSettings.revealKey) private var reveal = true
+final class MovieExportSettings: NSViewController {
+    private let d = UserDefaults.standard
+    private let codec = NSPopUpButton()
+    private let quality = NSSlider()
+    private let percent = NSTextField(labelWithString: "")
+    private let size = NSPopUpButton()
+    private let matte = NSPopUpButton()
+    private let words = NSButton(checkboxWithTitle: "Transcript (.words.json)", target: nil, action: nil)
+    private let subtitles = NSButton(checkboxWithTitle: "Subtitles (.srt)", target: nil, action: nil)
+    private let fcpxml = NSButton(checkboxWithTitle: "Final Cut Pro XML (.fcpxml)", target: nil, action: nil)
+    private let reveal = NSButton(checkboxWithTitle: "Show the files in the Finder", target: nil, action: nil)
+    private let codecNote = MovieExportSettings.note(), qualityNote = MovieExportSettings.note()
+    private let sizeNote = MovieExportSettings.note(), matteNote = MovieExportSettings.note()
 
-    var body: some View {
-        Form {
-            Picker("Format:", selection: $codec) {
-                ForEach(Codec.allCases, id: \.self) { Text($0.label).tag($0) }
-            }
-            .fixedSize()
-            note(codec == .hevc
-                 ? "A small file."
-                 : "A much larger file, for a workflow that asks for ProRes.")
-
-            Slider(value: $quality, in: 0.5...1, step: 0.05) {
-                Text("Quality:")
-            } minimumValueLabel: {
-                Text("")
-            } maximumValueLabel: {
-                Text("\(Int((quality * 100).rounded()))%").monospacedDigit()
-            }
-            .frame(width: 320)
-            .disabled(codec != .hevc)
-            note(codec == .hevc
-                 ? "Higher is cleaner, and a larger file."
-                 : "ProRes 4444 has one quality.")
-
-            Picker("Size:", selection: $lines) {
-                ForEach(ExportSettings.sizes, id: \.lines) { Text($0.label).tag($0.lines) }
-            }
-            .fixedSize()
-            note(lines == 0
-                 ? "Pixel for pixel over the footage."
-                 : "Scaled from the video's shape. Final Cut fits it to the project; a smaller movie exports sooner and looks softer.")
-
-            LabeledContent("Frame Rate:") { Text("Same as the video").foregroundStyle(.secondary) }
-            note("So every word changes on a frame of the footage.")
-
-            Picker("Background:", selection: $matte) {
-                ForEach(Matte.allCases, id: \.self) { Text($0.label).tag($0) }
-            }
-            .fixedSize()
-            note(matte == .clear
-                 ? "The cards over an alpha channel, which Final Cut reads as it is."
-                 : "A solid colour behind the cards, for an editor or a site that does not read alpha.")
-
-            Divider().padding(.vertical, 6)
-
-            LabeledContent("Also Write:") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Transcript (.words.json)", isOn: $words)
-                    Toggle("Subtitles (.srt)", isOn: $subtitles)
-                    Toggle("Final Cut Pro XML (.fcpxml)", isOn: $fcpxml)
-                }
-            }
-            note("The transcript can be corrected and given back to the phraso command. The XML is a project holding the movie, to import.")
-
-            LabeledContent("After Export:") {
-                Toggle("Show the files in the Finder", isOn: $reveal)
-            }
+    override func loadView() {
+        codec.addItems(withTitles: Codec.allCases.map(\.label))
+        size.addItems(withTitles: ExportSettings.sizes.map(\.label))
+        matte.addItems(withTitles: Matte.allCases.map(\.label))
+        quality.minValue = 0.5
+        quality.maxValue = 1
+        quality.numberOfTickMarks = 11
+        quality.allowsTickMarkValuesOnly = true
+        quality.isContinuous = true
+        percent.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        percent.textColor = .secondaryLabelColor
+        for c in [codec, quality, size, matte, words, subtitles, fcpxml, reveal] as [NSControl] {
+            c.target = self
+            c.action = #selector(changed(_:))
         }
-        .padding(.horizontal, 40).padding(.vertical, 20)
+        let slider = NSStackView(views: [sized(quality, 236, nil), percent])
+        slider.spacing = 6
+        let rate = NSTextField(labelWithString: "Same as the video")
+        rate.textColor = .secondaryLabelColor
+        let line = sized(NSBox(), 395, nil)
+        line.boxType = .separator
+        let also = NSStackView(views: [words, subtitles, fcpxml])
+        also.orientation = .vertical
+        also.alignment = .leading
+        also.spacing = 6
+
+        let grid = NSGridView(views: [
+            [label("Format:"), codec], [NSGridCell.emptyContentView, codecNote],
+            [label("Quality:"), slider], [NSGridCell.emptyContentView, qualityNote],
+            [label("Size:"), size], [NSGridCell.emptyContentView, sizeNote],
+            [label("Frame Rate:"), rate], [NSGridCell.emptyContentView, Self.note("So every word changes on a frame of the footage.")],
+            [label("Background:"), matte], [NSGridCell.emptyContentView, matteNote],
+            [NSGridCell.emptyContentView, line],
+            [label("Also Write:"), also],
+            [NSGridCell.emptyContentView, Self.note("The transcript can be corrected and given back to the phraso command. The XML is a project holding the movie, to import.")],
+            [label("After Export:"), reveal],
+        ])
+        grid.column(at: 0).xPlacement = .trailing
+        grid.rowAlignment = .firstBaseline
+        grid.rowSpacing = 5
+        grid.columnSpacing = 8
+        for i in [1, 3, 5, 7, 9, 12] { grid.row(at: i).bottomPadding = 8 }
+        // the line keeps its own space above and below
+        grid.row(at: 10).topPadding = 6
+        grid.row(at: 10).bottomPadding = 6
+        grid.row(at: 10).yPlacement = .center
+
+        let page = NSView()
+        grid.translatesAutoresizingMaskIntoConstraints = false
+        page.addSubview(grid)
+        NSLayoutConstraint.activate([
+            page.widthAnchor.constraint(equalToConstant: 560),
+            grid.topAnchor.constraint(equalTo: page.topAnchor, constant: 20),
+            grid.bottomAnchor.constraint(equalTo: page.bottomAnchor, constant: -20),
+            grid.leadingAnchor.constraint(equalTo: page.leadingAnchor, constant: 40),
+            grid.trailingAnchor.constraint(lessThanOrEqualTo: page.trailingAnchor, constant: -40),
+        ])
+        view = page
+        show()
     }
 
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        preferredContentSize = view.fittingSize
+    }
+
+    private func label(_ s: String) -> NSTextField { NSTextField(labelWithString: s) }
+
     /// The line of explanation under a control.
-    private func note(_ s: String) -> some View {
-        Text(s)
-            .font(.callout).foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(width: 320, alignment: .leading)
-            .padding(.bottom, 8)
+    private static func note(_ s: String = "") -> NSTextField {
+        let n = NSTextField(wrappingLabelWithString: s)
+        n.font = .systemFont(ofSize: 12)
+        n.textColor = .secondaryLabelColor
+        n.preferredMaxLayoutWidth = 320
+        return sized(n, 320, nil)
+    }
+
+    /// Each control as the stored settings read, with the notes that go with them.
+    private func show() {
+        let c = ExportSettings.codec
+        codec.selectItem(at: Codec.allCases.firstIndex(of: c) ?? 0)
+        codecNote.stringValue = c == .hevc ? "A small file." : "A much larger file, for a workflow that asks for ProRes."
+        quality.doubleValue = ExportSettings.quality
+        quality.isEnabled = c == .hevc
+        percent.stringValue = "\(Int((ExportSettings.quality * 100).rounded()))%"
+        qualityNote.stringValue = c == .hevc ? "Higher is cleaner, and a larger file." : "ProRes 4444 has one quality."
+        let lines = ExportSettings.lines ?? 0
+        size.selectItem(at: ExportSettings.sizes.firstIndex { $0.lines == lines } ?? 0)
+        sizeNote.stringValue = lines == 0
+            ? "Pixel for pixel over the footage."
+            : "Scaled from the video's shape. Final Cut fits it to the project; a smaller movie exports sooner and looks softer."
+        let m = ExportSettings.matte
+        matte.selectItem(at: Matte.allCases.firstIndex(of: m) ?? 0)
+        matteNote.stringValue = m == .clear
+            ? "The cards over an alpha channel, which Final Cut reads as it is."
+            : "A solid colour behind the cards, for an editor or a site that does not read alpha."
+        words.state = ExportSettings.words ? .on : .off
+        subtitles.state = ExportSettings.subtitles ? .on : .off
+        fcpxml.state = ExportSettings.fcpxml ? .on : .off
+        reveal.state = ExportSettings.reveal ? .on : .off
+    }
+
+    @objc private func changed(_ sender: NSControl) {
+        switch sender {
+        case codec: d.set(Codec.allCases[codec.indexOfSelectedItem].rawValue, forKey: ExportSettings.codecKey)
+        case quality: d.set((quality.doubleValue * 20).rounded() / 20, forKey: ExportSettings.qualityKey)
+        case size: d.set(ExportSettings.sizes[size.indexOfSelectedItem].lines, forKey: ExportSettings.linesKey)
+        case matte: d.set(Matte.allCases[matte.indexOfSelectedItem].rawValue, forKey: ExportSettings.matteKey)
+        case words: d.set(words.state == .on, forKey: ExportSettings.wordsKey)
+        case subtitles: d.set(subtitles.state == .on, forKey: ExportSettings.subtitlesKey)
+        case fcpxml: d.set(fcpxml.state == .on, forKey: ExportSettings.fcpxmlKey)
+        case reveal: d.set(reveal.state == .on, forKey: ExportSettings.revealKey)
+        default: break
+        }
+        show()
+        preferredContentSize = view.fittingSize
     }
 }

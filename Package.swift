@@ -3,7 +3,7 @@
 //
 //   PhrasoKit  the engine: transcript, cards, styles, renderer, movie writer, FCPXML
 //   phraso     the command-line tool on top of it
-//   PhrasoApp  the SwiftUI app (bundled by Scripts/bundle-app.sh)
+//   PhrasoApp  the app (bundled by Scripts/bundle-app.sh)
 
 import PackageDescription
 

@@ -8,17 +8,13 @@ import AppKit
 import AVFoundation
 import Combine
 import PhrasoKit
-import SwiftUI
 import UniformTypeIdentifiers
 
-extension UTType {
-    static let phrasoProject = UTType(exportedAs: "com.kocienda.phraso.project", conformingTo: .package)
-}
-
+/// The document class `App/Info.plist` names, under a name both builds give it: the
+/// package's module is PhrasoApp and the Xcode project's is Phraso.
+@objc(PhrasoDocument)
 @MainActor
-final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
-    static var readableContentTypes: [UTType] { [.phrasoProject] }
-
+final class Document: NSDocument, ObservableObject {
     /// What project.json holds. The transcript and the style are files of their own.
     struct ProjectFile: Codable {
         var phraso = 1
@@ -26,12 +22,6 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
         var bookmark: Data?
         var preset: String?
         var time: Double = 0
-    }
-
-    struct Snapshot {
-        var project: ProjectFile
-        var transcript: Transcript?
-        var style: Style
     }
 
     @Published var videoURL: URL?
@@ -50,25 +40,9 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
     @Published var progress: Double = 0
     @Published var lastExport: Job.Outputs?
     @Published var error: String?
-    /// Drops the video sheet from the window. A new document asks at once.
-    @Published var askingForVideo = false
 
-    /// The window's undo manager, handed over by the view; edits register here so the
-    /// document knows it is dirty and ⌘Z works.
-    weak var undoManager: UndoManager?
-    /// The document's window, handed over by the view.
-    weak var window: NSWindow?
-
-    /// Close a new document whose video sheet was cancelled: with no video and no file
-    /// of its own there is nothing in it to keep.
-    func closeIfEmpty() {
-        guard videoURL == nil, let w = window else { return }
-        if let d = w.windowController?.document as? NSDocument {
-            if d.fileURL == nil { d.close() }
-        } else {
-            w.close()
-        }
-    }
+    /// The document's window.
+    var window: NSWindow? { windowControllers.first?.window }
 
     /// The steps for the current transcript and style, on the video's frame rate.
     var plan: (steps: [RenderStep], frames: Int) {
@@ -87,15 +61,43 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
     /// Set while the player moves the playhead, so the move is not sent back as a seek.
     private var playerIsMoving = false
 
-    init() {
+    override init() {
+        super.init()
         reloadPresets()
         watchForEdits()
         watchPlayhead()
     }
 
-    init(configuration: ReadConfiguration) throws {
-        reloadPresets()
-        guard let files = configuration.file.fileWrappers else { throw CocoaError(.fileReadCorruptFile) }
+    // MARK: the file
+
+    /// Untitled documents are kept too, and come back at the next launch.
+    override class var autosavesInPlace: Bool { true }
+
+    override func makeWindowControllers() {
+        addWindowController(DocumentWindowController(document: self))
+    }
+
+    /// A document with no video asks for one as soon as its window is up.
+    func windowDidShow() {
+        if videoURL == nil, !loadFromCommandLine() { chooseVideo() }
+    }
+
+    override func close() {
+        pause()
+        super.close()
+    }
+
+    /// Reading sets the document up as it was saved, which is not an edit to undo. The
+    /// document controller reads on the main thread, since this class does not say it
+    /// can read concurrently.
+    override nonisolated func read(from fileWrapper: FileWrapper, ofType typeName: String) throws {
+        try MainActor.assumeIsolated { try read(fileWrapper) }
+    }
+
+    private func read(_ fileWrapper: FileWrapper) throws {
+        guard let files = fileWrapper.fileWrappers else { throw CocoaError(.fileReadCorruptFile) }
+        undoManager?.disableUndoRegistration()
+        defer { undoManager?.enableUndoRegistration() }
         let project = try JSONDecoder().decode(ProjectFile.self, from: files["project.json"]?.regularFileContents ?? Data("{}".utf8))
         if let d = files["style.json"]?.regularFileContents { style = try JSONDecoder().decode(Style.self, from: d) }
         if let d = files["words.json"]?.regularFileContents { transcript = try JSONDecoder().decode(Transcript.self, from: d) }
@@ -111,32 +113,25 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
             load(u, keepingTranscript: true)
         } else {
             status = project.video.map { "The video is missing: \($0)" } ?? "Choose a video to caption."
-            askingForVideo = true
         }
-        watchForEdits()
-        watchPlayhead()
     }
 
-    func snapshot(contentType: UTType) throws -> Snapshot {
-        var p = ProjectFile(video: videoURL?.path, preset: presetName, time: time)
-        p.bookmark = try? videoURL?.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
-        return Snapshot(project: p, transcript: transcript, style: style)
-    }
-
-    nonisolated func fileWrapper(snapshot: Snapshot, configuration: WriteConfiguration) throws -> FileWrapper {
+    override func fileWrapper(ofType typeName: String) throws -> FileWrapper {
+        var project = ProjectFile(video: videoURL?.path, preset: presetName, time: time)
+        project.bookmark = try? videoURL?.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         var files: [String: FileWrapper] = [
-            "project.json": FileWrapper(regularFileWithContents: try enc.encode(snapshot.project)),
-            "style.json": FileWrapper(regularFileWithContents: try enc.encode(snapshot.style)),
+            "project.json": FileWrapper(regularFileWithContents: try enc.encode(project)),
+            "style.json": FileWrapper(regularFileWithContents: try enc.encode(style)),
         ]
-        if let t = snapshot.transcript { files["words.json"] = FileWrapper(regularFileWithContents: try enc.encode(t)) }
+        if let t = transcript { files["words.json"] = FileWrapper(regularFileWithContents: try enc.encode(t)) }
         return FileWrapper(directoryWithFileWrappers: files)
     }
 
-    /// Style and transcript edits become undo steps, which is also what marks the
-    /// document edited. `@Published` publishes before the value changes, so `style` is
-    /// still the old value when the new one arrives.
+    /// Style and transcript edits become undo steps on the document's undo manager,
+    /// which is also what marks the document edited. `@Published` publishes before the
+    /// value changes, so `style` is still the old value when the new one arrives.
     private func watchForEdits() {
         $style.dropFirst().sink { [weak self] new in
             guard let self, new != self.style else { return }
@@ -181,6 +176,54 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
     /// Any movie or sound file AVFoundation can open.
     static let mediaTypes: [UTType] = [.audiovisualContent, .movie, .video, .audio]
 
+    /// Ask for the video in a sheet on the window. A new document asks at once, and one
+    /// that is refused its video has nothing to be, so it closes.
+    func chooseVideo() {
+        guard let w = window, w.attachedSheet == nil else { return }
+        let panel = NSOpenPanel()
+        panel.message = "Choose video or sound file to caption"
+        panel.prompt = "Choose"
+        panel.allowedContentTypes = Document.mediaTypes
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.beginSheetModal(for: w) { result in
+            if result == .OK, let url = panel.url {
+                self.load(url)
+            } else if self.videoURL == nil, self.fileURL == nil {
+                self.close()
+            }
+        }
+    }
+
+    @objc func chooseVideo(_ sender: Any?) { chooseVideo() }
+    @objc func exportMovie(_ sender: Any?) { export() }
+    @objc func saveStylePreset(_ sender: Any?) { savePreset() }
+    @objc func togglePlayback(_ sender: Any?) { togglePlay() }
+    @objc func stepBackward(_ sender: Any?) { step(-1) }
+    @objc func stepForward(_ sender: Any?) { step(1) }
+    @objc func goToStart(_ sender: Any?) { toStart() }
+    @objc func goToEnd(_ sender: Any?) { toEnd() }
+
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        switch item.action {
+        case #selector(exportMovie(_:)): return transcript != nil && !isBusy
+        case #selector(togglePlayback(_:)):
+            (item as? NSMenuItem)?.title = isPlaying ? "Pause" : "Play"
+            return transportHasKeys
+        case #selector(stepBackward(_:)), #selector(stepForward(_:)), #selector(goToStart(_:)), #selector(goToEnd(_:)):
+            return transportHasKeys
+        default: return super.validateUserInterfaceItem(item)
+        }
+    }
+
+    /// Space, the arrows, Home and End move the playhead the way every player has them;
+    /// but not while a field or a control has the keyboard, or a sheet is up, when a
+    /// disabled item leaves the key to them.
+    private var transportHasKeys: Bool {
+        guard duration > 0, let w = window, NSApp.keyWindow === w, w.attachedSheet == nil else { return false }
+        return !(w.firstResponder is NSText) && !(w.firstResponder is NSControl)
+    }
+
     func load(_ url: URL, keepingTranscript: Bool = false) {
         _ = url.startAccessingSecurityScopedResource()
         videoURL = url
@@ -209,7 +252,7 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
                         status = "Loaded the transcript beside the video (\(sidecar.lastPathComponent))."
                     } else {
                         status = "Transcribing…"
-                        transcript = try await Transcriber.transcribe(url) { [weak self] m in Task { @MainActor in self?.status = m } }
+                        transcript = try await Transcriber.transcribe(url) { m in Task { @MainActor in self.status = m } }
                         status = "\(transcript!.words.count) words. Pick a style, fix any words, then Export."
                     }
                     if let t = transcript, let first = t.words.first { time = first.start + 0.2 }
@@ -234,7 +277,7 @@ final class Document: @preconcurrency ReferenceFileDocument, ObservableObject {
         status = "Transcribing…"
         Task {
             do {
-                transcript = try await Transcriber.transcribe(url) { [weak self] m in Task { @MainActor in self?.status = m } }
+                transcript = try await Transcriber.transcribe(url) { m in Task { @MainActor in self.status = m } }
                 status = "\(transcript!.words.count) words."
             } catch { self.error = "\(error)" }
             isBusy = false

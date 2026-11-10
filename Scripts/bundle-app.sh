@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build the SwiftUI app with SwiftPM and wrap it as Phraso.app (ad hoc signed), so it
+# Build the app with SwiftPM and wrap it as Phraso.app (ad hoc signed), so it
 # launches with `open Phraso.app`. Pass --debug for a debug build. The Info.plist and
 # the icon are the same ones the Xcode project uses (App/).
 #
