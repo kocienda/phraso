@@ -26,6 +26,29 @@ final class CardsTests: XCTestCase {
         XCTAssertEqual(cards.map { $0.words.map(\.text) }, [["a,", "b", "c,"], ["d"]])
     }
 
+    func testABreakEndsTheCardBeforeTheCount() {
+        var ws = words("a:0-1 b:1-2 c:2-3 d:3-4 e:4-5")
+        ws[0].break = true
+        let cards = Cards.make(ws, rules: CardRules(words: 3))
+        XCTAssertEqual(cards.map { $0.words.map(\.text) }, [["a"], ["b", "c", "d"], ["e"]])
+    }
+
+    func testWordsWithoutABreakKeyReadAndWriteAsBefore() throws {
+        let file = #"{"duration":2,"locale":"en-US","source":"x","words":[{"end":1,"start":0,"text":"a"},{"end":2,"start":1,"text":"b"}]}"#
+        let t = try JSONDecoder().decode(Transcript.self, from: Data(file.utf8))
+        XCTAssertEqual(t.words.map(\.break), [false, false])
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.sortedKeys]
+        XCTAssertEqual(String(decoding: try enc.encode(t), as: UTF8.self), file)
+    }
+
+    func testABreakIsWrittenAndReadBack() throws {
+        let w = Word("a", 0, 1, break: true)
+        let data = try JSONEncoder().encode(w)
+        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains(#""break":true"#))
+        XCTAssertEqual(try JSONDecoder().decode(Word.self, from: data), w)
+    }
+
     func testCardsAbutAcrossShortPausesAndDropAfterLongOnes() {
         let cards = Cards.make(words("a:0-1 b.:1-2 c:3-4 d.:4-5 e:9-10"), rules: CardRules(words: 4, linger: 1.5, hold: 0.4))
         XCTAssertEqual(cards.count, 3)

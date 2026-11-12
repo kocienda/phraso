@@ -268,7 +268,78 @@ final class Document: NSDocument, ObservableObject {
     func setWord(_ i: Int, text: String) {
         guard var t = transcript, t.words.indices.contains(i) else { return }
         t.words[i].text = text
+        if isFresh(i) {
+            // a word's first text belongs to putting it in, so one Undo takes it out
+            fresh = nil
+            undoManager?.disableUndoRegistration()
+            transcript = t
+            undoManager?.enableUndoRegistration()
+        } else {
+            transcript = t
+        }
+    }
+
+    /// Ends the card after word `i` whatever the count, or lets it run on again. Neither
+    /// the words nor their times move.
+    func toggleBreak(_ i: Int) {
+        guard var t = transcript, t.words.indices.contains(i) else { return }
+        t.words[i].break.toggle()
         transcript = t
+        undoManager?.setActionName(t.words[i].break ? "Add Card Break" : "Remove Card Break")
+    }
+
+    /// Takes a word out of the transcript; the words either side keep their times.
+    func removeWord(_ i: Int) {
+        guard var t = transcript, t.words.indices.contains(i) else { return }
+        if isFresh(i), let u = undoManager, u.canUndo, u.undoActionName == "Insert Word" {
+            // a word put in and left empty was never there
+            fresh = nil
+            u.undo()
+            return
+        }
+        t.words.remove(at: i)
+        transcript = t
+    }
+
+    /// Puts an empty word in before word `i` (after the last when `i` is the count).
+    /// It takes the pause between its neighbours, or when they abut, the second half of
+    /// the word before, whose end moves to the middle; so no other word moves. At the
+    /// ends it takes up to half a second before the first word or after the last.
+    func insertWord(at i: Int) {
+        guard var t = transcript, (0...t.words.count).contains(i) else { return }
+        let w = t.words
+        let limit = max(t.duration, duration, w.last?.end ?? 0)
+        var start: Double, end: Double
+        if i > 0, i < w.count, w[i].start > w[i - 1].end {
+            (start, end) = (w[i - 1].end, w[i].start)
+        } else if i == 0, let first = w.first, first.start > 0 {
+            (start, end) = (max(0, first.start - 0.5), first.start)
+        } else if i == w.count, let last = w.last, last.end < limit {
+            (start, end) = (last.end, min(limit, last.end + 0.5))
+        } else if i > 0 {
+            // abutting, or the last word runs to the end: halve the word before
+            let mid = (w[i - 1].start + w[i - 1].end) / 2
+            (start, end) = (mid, w[i - 1].end)
+            t.words[i - 1].end = mid
+        } else if let first = w.first {
+            // the first word starts at zero: take its first half
+            let mid = (first.start + first.end) / 2
+            (start, end) = (first.start, mid)
+            t.words[0].start = mid
+        } else {
+            (start, end) = (0, min(0.5, limit))
+        }
+        t.words.insert(Word("", start, end), at: i)
+        transcript = t
+        undoManager?.setActionName("Insert Word")
+        fresh = (i, t)
+    }
+
+    /// The word `insertWord` put in, while nothing else has changed the transcript.
+    private var fresh: (index: Int, transcript: Transcript)?
+    private func isFresh(_ i: Int) -> Bool {
+        guard let f = fresh else { return false }
+        return f.index == i && f.transcript == transcript
     }
 
     func retranscribe() {

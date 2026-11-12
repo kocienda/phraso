@@ -9,14 +9,15 @@ import PhrasoKit
 
 final class ContentView: NSView {
     private let doc: Document
+    let transcript: TranscriptView
     private var sidebarWidth: NSLayoutConstraint!
     private var bag: Set<AnyCancellable> = []
 
     init(doc: Document) {
         self.doc = doc
+        transcript = TranscriptView(doc: doc)
         super.init(frame: NSRect(x: 0, y: 0, width: 1180, height: 728))
         let preview = PreviewView(doc: doc)
-        let transcript = TranscriptView(doc: doc)
         let sidebar = Sidebar(doc: doc)
         let across = separator(), down = separator()
         for v in [preview, across, transcript, down, sidebar] as [NSView] {

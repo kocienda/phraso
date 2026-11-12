@@ -10,9 +10,31 @@ public struct Word: Codable, Equatable, Sendable {
     public var text: String
     public var start: Double
     public var end: Double
+    /// The card ends after this word, whatever the words-per-card count. In the file as
+    /// `"break": true`, and only when it is set, so a words.json without it reads the same
+    /// and one that never had a break is written back unchanged.
+    public var `break`: Bool
 
-    public init(_ text: String, _ start: Double, _ end: Double) {
-        self.text = text; self.start = start; self.end = end
+    public init(_ text: String, _ start: Double, _ end: Double, break: Bool = false) {
+        self.text = text; self.start = start; self.end = end; self.break = `break`
+    }
+
+    private enum CodingKeys: String, CodingKey { case text, start, end, `break` }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        text = try c.decode(String.self, forKey: .text)
+        start = try c.decode(Double.self, forKey: .start)
+        end = try c.decode(Double.self, forKey: .end)
+        `break` = try c.decodeIfPresent(Bool.self, forKey: .break) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(text, forKey: .text)
+        try c.encode(start, forKey: .start)
+        try c.encode(end, forKey: .end)
+        if `break` { try c.encode(true, forKey: .break) }
     }
 }
 

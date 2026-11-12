@@ -76,10 +76,11 @@ private let clauseMarks: Set<Character> = [",", ";", ":", "—"]
 
 public enum Cards {
     /// Group words into cards of at most `rules.words`, breaking at sentence and clause
-    /// punctuation and at pauses longer than `gap`. Cards abut: a card stays up until the
-    /// next card's first word, so there are no blank frames mid-speech. Only when the pause
-    /// before the next card is longer than `linger` (or there is no next card) does it drop
-    /// `hold` seconds after its last word.
+    /// punctuation, at pauses longer than `gap`, and after a word that carries a break,
+    /// whatever the count. Cards abut: a card stays up until the next card's first word,
+    /// so there are no blank frames mid-speech. Only when the pause before the next card
+    /// is longer than `linger` (or there is no next card) does it drop `hold` seconds
+    /// after its last word.
     public static func make(_ words: [Word], rules r: CardRules) -> [Card] {
         var cards: [Card] = []
         var current: [Word] = []
@@ -90,7 +91,7 @@ public enum Cards {
             let pause = next.map { $0.start - w.end > r.gap } ?? false
             let sentence = endsWith(w.text, anyOf: sentenceMarks)
             let clause = endsWith(w.text, anyOf: clauseMarks) && current.count >= 2
-            if next == nil || full || pause || sentence || clause {
+            if next == nil || full || pause || sentence || clause || w.break {
                 cards.append(Card(words: current, end: 0))
                 current = []
             }

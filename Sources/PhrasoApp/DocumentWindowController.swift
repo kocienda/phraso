@@ -46,6 +46,19 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    /// Return with no field or control holding the keyboard goes to the first word. A key
+    /// a field or a control has taken never gets this far, and one it passes up is left
+    /// alone here too.
+    override func keyDown(with event: NSEvent) {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.numericPad, .function])
+        if event.keyCode == 36 || event.keyCode == 76, mods.isEmpty, let w = window, w.attachedSheet == nil,
+           !(w.firstResponder is NSText), !(w.firstResponder is NSControl),
+           (w.contentView as? ContentView)?.transcript.focusFirstWord() == true {
+            return
+        }
+        super.keyDown(with: event)
+    }
+
     /// The classic cascade: the first window at the top left of the screen, each next one
     /// a title bar down and across, starting over when the next would run off the screen.
     private static func place(_ w: DocumentWindow) {

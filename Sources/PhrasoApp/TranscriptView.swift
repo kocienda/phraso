@@ -1,7 +1,8 @@
 // The words as the recognizer heard them, each one editable, under a header that says
 // what the document is doing. Click a word to move the playhead to it; the word under the
-// playhead is marked. Tab and Shift-Tab go to the next and previous word, Return or
-// leaving a word keeps the edit, Escape puts the word back as it was.
+// playhead is marked. Tab and Shift-Tab go to the next and previous word. Return, Escape
+// and leaving a word all keep the edit, and Return and Escape also let go of the keyboard,
+// so space plays again; Undo is the way back to the word as it was.
 
 import AppKit
 import Combine
@@ -15,7 +16,7 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
     private let count = label(size: 12, secondary: true)
     private let retranscribe = NSButton(title: "Re-transcribe", target: nil, action: nil)
     private let scroll = NSScrollView()
-    private let words = NSCollectionView()
+    private let words = WordCollection()
     private let flow = WordFlow()
     private let empty = label(size: 13, secondary: true)
     private var bag: Set<AnyCancellable> = []
@@ -26,6 +27,14 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
     /// The word whose field has the keyboard, and its text as typed so far.
     private var editing: (index: Int, draft: String)?
     private var current: Int?
+    /// The word last taken out, so the word being edited when the cells are made again
+    /// can be found at its new place; and the word to take the keyboard then, when Delete
+    /// took the word out.
+    private var removed: Int?
+    private var refocus: Int?
+    /// Each text's width as the field draws it in semibold, which the layout asks for
+    /// on every pass.
+    private var widths: [String: CGFloat] = [:]
 
     init(doc: Document) {
         self.doc = doc
@@ -57,6 +66,8 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
         words.isSelectable = false
         words.backgroundColors = [.clear]
         words.register(WordItem.self, forItemWithIdentifier: WordItem.id)
+        words.gap = { [weak self] p in self?.flow.gap(at: p) }
+        words.insert = { [weak self] i in self?.insert(at: i) }
         scroll.documentView = words
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
@@ -81,8 +92,10 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
             empty.centerYAnchor.constraint(equalTo: scroll.centerYAnchor),
         ])
 
-        doc.$transcript.receive(on: DispatchQueue.main).sink { [weak self] t in
-            self?.show(t?.words ?? [])
+        // the latest transcript rather than the one delivered, so a click that takes an
+        // empty word out and puts a new one in is one reload
+        doc.$transcript.receive(on: DispatchQueue.main).sink { [weak self] _ in
+            self?.show(self?.doc.transcript?.words ?? [])
         }.store(in: &bag)
         doc.objectWillChange.sink { [weak self] in self?.setNeedsUpdate() }.store(in: &bag)
         update()
@@ -151,9 +164,16 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
             for ip in words.indexPathsForVisibleItems() where ip.item != editing?.index {
                 cell(ip.item)?.text = new[ip.item].text
             }
+            for ip in words.indexPathsForVisibleItems() { cell(ip.item)?.breaks = new[ip.item].break }
             flow.invalidateLayout()
             return
         }
+        // a word just taken out leaves the keyboard with the word after it, or with the
+        // word that had been clicked as the empty one let go
+        var target = refocus
+        if target == nil, let e = editing, let r = removed { target = e.index > r ? e.index - 1 : e.index }
+        refocus = nil
+        removed = nil
         // the cells go, so a word half typed is dropped rather than written into words
         // it was not typed over
         editing = nil
@@ -162,6 +182,7 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
         current = nil
         words.reloadData()
         setNeedsUpdate()
+        if let target { focus(target) }
     }
 
     private func cell(_ i: Int) -> WordItem? {
@@ -177,11 +198,32 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
         }
     }
 
-    /// The old app's measure: wide enough for the text as typed, and never too small to click.
+    /// Wide enough for the text as typed, measured as the field draws it in the semibold
+    /// the word under the playhead takes, so it does not clip, plus the field's insets.
+    /// The field's own padding, inside that measure, leaves room for the caret at the
+    /// end, and a word that ends its card has room for the mark that says so. Never too
+    /// small to click.
     private func size(of i: Int) -> NSSize {
         guard i < shown.count else { return .zero }
         let text = editing?.index == i ? editing!.draft : shown[i].text
-        return NSSize(width: max(28, (CGFloat(text.count) * 8.5 + 14).rounded()), height: WordItem.height)
+        let mark = shown[i].break ? WordItem.markWidth : 0
+        return NSSize(width: max(28, width(of: text) + 2 * WordItem.inset + mark), height: WordItem.height)
+    }
+
+    private static let measure: NSTextFieldCell = {
+        let c = NSTextFieldCell(textCell: "")
+        c.isBordered = false
+        c.drawsBackground = false
+        c.font = WordItem.currentFont
+        return c
+    }()
+
+    private func width(of text: String) -> CGFloat {
+        if let w = widths[text] { return w }
+        Self.measure.stringValue = text
+        let w = ceil(Self.measure.cellSize.width)
+        widths[text] = w
+        return w
     }
 
     // MARK: data source
@@ -196,10 +238,12 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
         item.index = i
         item.text = editing?.index == i ? editing!.draft : shown[i].text
         item.current = i == current
+        item.breaks = shown[i].break
         item.began = { [weak self] in self?.began(i) }
         item.changed = { [weak self] s in self?.changed(i, s) }
         item.ended = { [weak self] s in self?.ended(i, s) }
-        item.reverted = { [weak self] in self?.shown.indices.contains(i) == true ? self?.shown[i].text : nil }
+        item.remove = { [weak self] in self?.remove(i, focusNext: true) }
+        item.toggleBreak = { [weak self] in self?.toggleBreak(i) }
         item.step = { [weak self] by in self?.focus(i + by) }
         return item
     }
@@ -221,8 +265,43 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
     private func ended(_ i: Int, _ s: String) {
         guard editing?.index == i else { return }
         editing = nil
-        if i < shown.count, s != shown[i].text { doc.setWord(i, text: s) }
+        guard i < shown.count else { return }
+        // a word left empty goes, however its editing ended
+        if s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return remove(i, focusNext: false) }
+        if s != shown[i].text { doc.setWord(i, text: s) }
         flow.invalidateLayout()
+    }
+
+    /// Takes word `i` out. After Delete the next word takes the keyboard, selected, or
+    /// the one before when it was the last; the new cells are made first.
+    private func remove(_ i: Int, focusNext: Bool) {
+        guard i < shown.count else { return }
+        editing = nil
+        removed = i
+        refocus = focusNext && shown.count > 1 ? min(i, shown.count - 2) : nil
+        doc.removeWord(i)
+    }
+
+    /// Ends the card after word `i`, or lets it run on, keeping the word in the keyboard.
+    /// What was typed is kept first, as leaving the word would keep it; a word with
+    /// nothing in it has nothing to end a card on.
+    private func toggleBreak(_ i: Int) {
+        guard i < shown.count else { return }
+        let text = editing?.index == i ? editing!.draft : shown[i].text
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if text != shown[i].text { doc.setWord(i, text: text) }
+        doc.toggleBreak(i)
+    }
+
+    /// Puts an empty word in at gap `i`, counted in the words on show, and gives it the
+    /// keyboard once its cell is made. The click that asks may have just let go of an
+    /// empty word, which takes it out and moves the gap down by one.
+    private func insert(at i: Int) {
+        var at = i
+        if let r = removed, r < at { at -= 1 }
+        removed = nil
+        refocus = at
+        doc.insertWord(at: at)
     }
 
     private func focus(_ i: Int) {
@@ -232,12 +311,22 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
         words.layoutSubtreeIfNeeded()
         if let item = cell(i) { w.makeFirstResponder(item.field) }
     }
+
+    /// The first word, selected and taking the keyboard, which is where Return goes when
+    /// nothing else has it. False when there are no words.
+    @discardableResult
+    func focusFirstWord() -> Bool {
+        guard !shown.isEmpty, !scroll.isHidden else { return false }
+        focus(0)
+        return cell(0)?.field.currentEditor() != nil
+    }
 }
 
-/// Words wrap like text, from the left, 4 apart and 10 in from the edges.
+/// Words wrap like text, from the left, 8 apart (room to click between two) and 10 in
+/// from the edges.
 final class WordFlow: NSCollectionViewLayout {
     var size: (Int) -> NSSize = { _ in .zero }
-    private let spacing: CGFloat = 4
+    private let spacing: CGFloat = 8
     private let inset: CGFloat = 10
     private var frames: [NSRect] = []
     private var height: CGFloat = 0
@@ -260,6 +349,27 @@ final class WordFlow: NSCollectionViewLayout {
     }
 
     override var collectionViewContentSize: NSSize { NSSize(width: width, height: height) }
+
+    /// The gap under a point: between two words on a row, or just before the first or
+    /// after the last on it. The index is where a word put in there goes, and the bar is
+    /// where the insertion mark is drawn.
+    func gap(at p: NSPoint) -> (index: Int, bar: NSRect)? {
+        let row = frames.indices.filter { frames[$0].minY <= p.y && p.y <= frames[$0].maxY }
+        guard let first = row.first, let last = row.last,
+              !row.contains(where: { frames[$0].contains(p) }) else { return nil }
+        let x: CGFloat, index: Int
+        if p.x < frames[first].minX {
+            (x, index) = (frames[first].minX - spacing / 2, first)
+        } else if p.x > frames[last].maxX {
+            guard p.x <= frames[last].maxX + spacing + 4 else { return nil }
+            (x, index) = (frames[last].maxX + spacing / 2, last + 1)
+        } else {
+            guard let next = row.first(where: { frames[$0].minX > p.x }) else { return nil }
+            (x, index) = ((frames[next - 1].maxX + frames[next].minX) / 2, next)
+        }
+        let top = row.map { frames[$0].minY }.min()!, bottom = row.map { frames[$0].maxY }.max()!
+        return (index, NSRect(x: (x - 1).rounded(), y: top, width: 2, height: bottom - top))
+    }
 
     override func layoutAttributesForElements(in rect: NSRect) -> [NSCollectionViewLayoutAttributes] {
         // the frames run down the view, so the first one in the rect is found by halving
@@ -292,18 +402,88 @@ final class WordFlow: NSCollectionViewLayout {
     }
 }
 
+/// The words' view, which puts a word in where a click lands between two, and marks the
+/// place with a bar while the pointer is over it.
+final class WordCollection: NSCollectionView {
+    var gap: (NSPoint) -> (index: Int, bar: NSRect)? = { _ in nil }
+    var insert: (Int) -> Void = { _ in }
+    private let bar = InsertionBar()
+    private var tracking: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let t = NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+                               owner: self, userInfo: nil)
+        addTrackingArea(t)
+        tracking = t
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        guard let g = gap(convert(event.locationInWindow, from: nil)) else { bar.isHidden = true; return }
+        bar.frame = g.bar
+        // the cells come and go, so the bar is put back on top of them each time
+        addSubview(bar, positioned: .above, relativeTo: nil)
+        bar.isHidden = false
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        bar.isHidden = true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let g = gap(convert(event.locationInWindow, from: nil)) else { return super.mouseDown(with: event) }
+        bar.isHidden = true
+        insert(g.index)
+    }
+}
+
+final class InsertionBar: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.cornerRadius = 1
+        isHidden = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = NSColor.controlAccentColor.cgColor
+        }
+    }
+
+    // the bar is a mark, not a target: clicks go through to the gap under it
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
 /// One word: a borderless field on a rounded tint, the accent's when it is under the playhead.
 final class WordItem: NSCollectionViewItem, NSTextFieldDelegate {
     static let id = NSUserInterfaceItemIdentifier("word")
     static let font = NSFont.systemFont(ofSize: 14)
+    static let currentFont = NSFont.systemFont(ofSize: 14, weight: .semibold)
     static let height = ceil(NSLayoutManager().defaultLineHeight(for: font)) + 6
+    /// The field's distance in from each side of the chip. The field pads its text by 2
+    /// more, so the text sits 6 in.
+    static let inset: CGFloat = 4
+    static let markFont = NSFont.systemFont(ofSize: 11)
+    /// The room the ⏎ takes at the right of a word that ends its card.
+    static let markWidth: CGFloat = ceil(("⏎" as NSString).size(withAttributes: [.font: markFont]).width) + 2
 
     let field = WordField()
+    private let mark = NSTextField(labelWithString: "⏎")
+    private var fieldEnd: NSLayoutConstraint!
     var index = 0
     var began: () -> Void = {}
     var changed: (String) -> Void = { _ in }
     var ended: (String) -> Void = { _ in }
-    var reverted: () -> String? = { nil }
+    var remove: () -> Void = {}
+    var toggleBreak: () -> Void = {}
     var step: (Int) -> Void = { _ in }
 
     var text: String {
@@ -314,8 +494,17 @@ final class WordItem: NSCollectionViewItem, NSTextFieldDelegate {
     var current = false {
         didSet {
             guard current != oldValue else { return }
-            field.font = current ? .systemFont(ofSize: 14, weight: .semibold) : Self.font
+            field.font = current ? Self.currentFont : Self.font
             (view as? WordCell)?.current = current
+        }
+    }
+
+    /// Whether the word ends its card, shown by a ⏎ at the chip's right edge.
+    var breaks = false {
+        didSet {
+            guard breaks != oldValue else { return }
+            mark.isHidden = !breaks
+            fieldEnd.constant = -(Self.inset + (breaks ? Self.markWidth : 0))
         }
     }
 
@@ -331,10 +520,18 @@ final class WordItem: NSCollectionViewItem, NSTextFieldDelegate {
         field.began = { [weak self] in self?.began() }
         field.translatesAutoresizingMaskIntoConstraints = false
         cell.addSubview(field)
+        mark.font = Self.markFont
+        mark.textColor = .secondaryLabelColor
+        mark.isHidden = true
+        mark.translatesAutoresizingMaskIntoConstraints = false
+        cell.addSubview(mark)
+        fieldEnd = field.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -Self.inset)
         NSLayoutConstraint.activate([
-            field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
-            field.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
+            field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: Self.inset),
+            fieldEnd,
             field.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            mark.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -Self.inset),
+            mark.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
         ])
         view = cell
     }
@@ -353,25 +550,51 @@ final class WordItem: NSCollectionViewItem, NSTextFieldDelegate {
         switch selector {
         case #selector(NSResponder.insertTab(_:)): step(1); return true
         case #selector(NSResponder.insertBacktab(_:)): step(-1); return true
-        case #selector(NSResponder.cancelOperation(_:)):
-            if let old = reverted() {
-                textView.string = old
-                textView.selectAll(nil)
-                changed(old)
-            }
+        case #selector(NSResponder.insertLineBreak(_:)):
+            toggleBreak(); return true
+        case #selector(NSResponder.insertNewline(_:)) where NSApp.currentEvent?.modifierFlags.contains(.shift) == true:
+            // Shift-Return ends the card after this word, or lets it run on again
+            toggleBreak(); return true
+        case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.cancelOperation(_:)):
+            // the edit is kept either way, and ends with nothing holding the keyboard
+            control.window?.makeFirstResponder(nil)
+            return true
+        case #selector(NSResponder.deleteBackward(_:)), #selector(NSResponder.deleteForward(_:)):
+            // Delete on the whole word takes the word out, not just its letters
+            let all = NSRange(location: 0, length: (textView.string as NSString).length)
+            guard all.length > 0, textView.selectedRange() == all else { return false }
+            remove()
             return true
         default: return false
         }
     }
 }
 
-/// A word's field, which says when it takes the keyboard, by a click or by Tab.
+/// A word's field, which says when it takes the keyboard, by a click or by Tab. The first
+/// click selects the whole word, as Tab does; a click in a word already being edited
+/// places the caret.
 final class WordField: NSTextField {
     var began: () -> Void = {}
+    /// The click that gave this field the keyboard. The window makes a clicked field
+    /// first responder before it passes the click on, so this is how the click knows it
+    /// is the first one.
+    private var takenBy: NSEvent?
+
+    override func mouseDown(with event: NSEvent) {
+        let first = takenBy.map { $0.timestamp == event.timestamp && $0.windowNumber == event.windowNumber } ?? false
+        takenBy = nil
+        // the click that takes the keyboard leaves the whole word selected, as taking
+        // it does, and is not passed on to put a caret in it
+        guard first, let editor = currentEditor() else { return super.mouseDown(with: event) }
+        editor.selectAll(nil)
+    }
 
     override func becomeFirstResponder() -> Bool {
         let ok = super.becomeFirstResponder()
-        if ok { began() }
+        if ok {
+            takenBy = NSApp.currentEvent.flatMap { $0.type == .leftMouseDown ? $0 : nil }
+            began()
+        }
         return ok
     }
 }
