@@ -243,7 +243,6 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
         item.changed = { [weak self] s in self?.changed(i, s) }
         item.ended = { [weak self] s in self?.ended(i, s) }
         item.remove = { [weak self] in self?.remove(i, focusNext: true) }
-        item.toggleBreak = { [weak self] in self?.toggleBreak(i) }
         item.step = { [weak self] by in self?.focus(i + by) }
         return item
     }
@@ -291,6 +290,25 @@ final class TranscriptView: NSView, NSCollectionViewDataSource {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         if text != shown[i].text { doc.setWord(i, text: text) }
         doc.toggleBreak(i)
+    }
+
+    /// The word Edit ▸ Add Card Break acts on: the one being typed in, or else the one
+    /// under the playhead.
+    private var breakTarget: Int? {
+        let i = editing?.index ?? doc.currentWordIndex
+        return i.flatMap { shown.indices.contains($0) ? $0 : nil }
+    }
+
+    /// Whether the word Add Card Break acts on already ends its card; nil when there is
+    /// no such word or it has no text, which turns the item off.
+    func breakState() -> Bool? {
+        guard !scroll.isHidden, let i = breakTarget else { return nil }
+        let text = editing?.index == i ? editing!.draft : shown[i].text
+        return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : shown[i].break
+    }
+
+    func toggleBreakOnTarget() {
+        if let i = breakTarget { toggleBreak(i) }
     }
 
     /// Puts an empty word in at gap `i`, counted in the words on show, and gives it the
@@ -483,7 +501,6 @@ final class WordItem: NSCollectionViewItem, NSTextFieldDelegate {
     var changed: (String) -> Void = { _ in }
     var ended: (String) -> Void = { _ in }
     var remove: () -> Void = {}
-    var toggleBreak: () -> Void = {}
     var step: (Int) -> Void = { _ in }
 
     var text: String {
@@ -550,12 +567,8 @@ final class WordItem: NSCollectionViewItem, NSTextFieldDelegate {
         switch selector {
         case #selector(NSResponder.insertTab(_:)): step(1); return true
         case #selector(NSResponder.insertBacktab(_:)): step(-1); return true
-        case #selector(NSResponder.insertLineBreak(_:)):
-            toggleBreak(); return true
-        case #selector(NSResponder.insertNewline(_:)) where NSApp.currentEvent?.modifierFlags.contains(.shift) == true:
-            // Shift-Return ends the card after this word, or lets it run on again
-            toggleBreak(); return true
-        case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.cancelOperation(_:)):
+        case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertLineBreak(_:)),
+             #selector(NSResponder.cancelOperation(_:)):
             // the edit is kept either way, and ends with nothing holding the keyboard
             control.window?.makeFirstResponder(nil)
             return true

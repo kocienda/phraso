@@ -4,7 +4,7 @@
 import AppKit
 import Combine
 
-final class DocumentWindowController: NSWindowController, NSToolbarDelegate {
+final class DocumentWindowController: NSWindowController, NSToolbarDelegate, NSMenuItemValidation {
     static let windowSize = NSSize(width: 1180, height: 780)
     /// Where the next new window's top left goes.
     private static var cascade = NSPoint.zero
@@ -57,6 +57,20 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate {
             return
         }
         super.keyDown(with: event)
+    }
+
+    /// Edit ▸ Add Card Break, ⌘R: ends the card after the word being typed in,
+    /// or after the word under the playhead when no word has the keyboard, or takes the
+    /// break off again.
+    @objc func toggleCardBreak(_ sender: Any?) {
+        (window?.contentView as? ContentView)?.transcript.toggleBreakOnTarget()
+    }
+
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        guard item.action == #selector(toggleCardBreak(_:)) else { return true }
+        let state = window?.attachedSheet == nil ? (window?.contentView as? ContentView)?.transcript.breakState() : nil
+        item.title = state == true ? "Remove Card Break" : "Add Card Break"
+        return state != nil
     }
 
     /// The classic cascade: the first window at the top left of the screen, each next one

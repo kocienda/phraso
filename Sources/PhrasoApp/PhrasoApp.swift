@@ -117,6 +117,10 @@ enum MainMenu {
         m.addItem(item("Paste", #selector(NSText.paste(_:)), "v"))
         m.addItem(item("Delete", #selector(NSText.delete(_:))))
         m.addItem(item("Select All", #selector(NSText.selectAll(_:)), "a"))
+        m.addItem(.separator())
+        // the word being typed in, or else the word under the playhead; its title says
+        // which way it goes
+        m.addItem(item("Add Card Break", #selector(DocumentWindowController.toggleCardBreak(_:)), "r"))
         return m
     }
 
