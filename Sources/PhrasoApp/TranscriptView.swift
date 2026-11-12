@@ -532,6 +532,9 @@ final class WordItem: NSCollectionViewItem, NSTextFieldDelegate {
         field.focusRingType = .none
         field.font = Self.font
         field.lineBreakMode = .byClipping
+        // the chip is wide enough for the word in semibold, so a word in the regular
+        // weight is centred in it rather than leaving all the slack on its right
+        field.alignment = .center
         field.cell?.isScrollable = true
         field.delegate = self
         field.began = { [weak self] in self?.began() }
