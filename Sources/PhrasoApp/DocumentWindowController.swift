@@ -159,6 +159,10 @@ final class FilmButton: NSButton, NSDraggingSource {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    /// With a movie to drag out, a press while another app is in front, Final Cut for
+    /// one, starts the drag rather than only bringing the window forward.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { doc?.lastExport != nil }
+
     override func mouseDown(with event: NSEvent) {
         guard let movie = doc?.lastExport?.movie, let w = window else { return super.mouseDown(with: event) }
         let start = event.locationInWindow

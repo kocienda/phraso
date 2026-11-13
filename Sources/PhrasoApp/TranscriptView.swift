@@ -684,6 +684,10 @@ final class ExportChip: NSView, NSDraggingSource {
         frame.contains(point) ? self : nil
     }
 
+    /// The drag usually starts while another app is in front, Final Cut for one, so the
+    /// press that would only bring the window forward starts it too.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func mouseDown(with event: NSEvent) { down = event }
 
     override func mouseDragged(with event: NSEvent) {
