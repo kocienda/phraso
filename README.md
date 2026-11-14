@@ -60,7 +60,7 @@ Build it with `Scripts/bundle-app.sh && open Phraso.app`, or open `Phraso.xcodep
 
 ```sh
 swift build -c release
-.build/release/phraso make talk.mov --style area
+.build/release/phraso make talk.mov --style outline
 ```
 
 writes `talk.captions.mov` and `talk.captions.words.json` beside the video. In Final Cut,
@@ -75,7 +75,7 @@ The options of `make`:
 
 | Option | What it does |
 |---|---|
-| `--style area` | a preset name, or a path to a style `.json` |
+| `--style outline` | a preset name, or a path to a style `.json` |
 | `--out dir`, `--name N` | where the files go, and what they are called |
 | `--words words.json` | use this transcript instead of transcribing |
 | `--locale en-US` | the language to transcribe |
@@ -91,20 +91,27 @@ The rest:
 
 ```sh
 phraso transcribe talk.mov --out talk.words.json       # the words alone
-phraso preview talk.mov --style glanceable --time 6.5  # one frame, over grey, to look at
+phraso preview talk.mov --style classic --time 6.5     # one frame, over grey, to look at
 phraso styles                                          # the presets, shipped and yours
-phraso style area --out mine.json                      # a preset to edit; then --style mine.json
+phraso style outline --out mine.json                   # a preset to edit; then --style mine.json
 phraso icon --text Hi! --out icon.png                  # the app icon, a word in a style
 ```
 
 ## Styles
 
 A style is one JSON file; the format is documented at the top of
-`Sources/PhrasoKit/Style.swift`. Five ship with it: `area`, `boxed`, `clean`,
-`glanceable` and `yellow`. Every preset is a file in
-`~/Library/Application Support/Phraso/Presets/`; the shipped ones are copied there the
-first time they are missing, so they can be edited or deleted like your own, and the app
-and the command read the same folder.
+`Sources/PhrasoKit/Style.swift`. Five ship with it, named for what they look like:
+`outline` (the default), `double-outline`, `classic`, `box` and `shadow`. Every preset
+is a file in `~/Library/Application Support/Phraso/Presets/`; each shipped one is copied
+there once, so it can be edited or deleted like your own (a deleted one stays deleted;
+`.shipped` in that folder lists what has been installed), and the app and the command
+read the same folder. The old names (`area`, `glanceable`, `yellow`, `boxed`, `clean`)
+still work wherever a preset is named, and copies under them move to the new names.
+
+The fonts the shipped presets use render on any Mac: Impact comes with macOS, and Anton
+and Inter Black ship inside PhrasoKit (`Sources/PhrasoKit/Fonts`, under the SIL Open
+Font License), registered for Phraso's own process at launch. A style naming a font the
+Mac does not have shows it in red in the app's font menu and fails to render, naming it.
 
 ## Layout
 

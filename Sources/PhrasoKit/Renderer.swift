@@ -47,6 +47,7 @@ public struct Renderer {
     /// the baseline between cards. `bounds` is the glyphs' horizontal extent over the
     /// font's fixed vertical band (descender to cap height).
     func wordPaths(_ words: [String]) throws -> (paths: [CGMutablePath], bounds: CGRect) {
+        BundledFonts.register()
         guard let font = NSFont(name: style.font, size: style.size * scale) else { throw RenderError.fontNotFound(style.font) }
         let text = words.joined(separator: " ")
         var attrs: [NSAttributedString.Key: Any] = [.font: font]

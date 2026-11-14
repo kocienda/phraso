@@ -1,6 +1,6 @@
 // phraso: word-highlighted captions for Final Cut Pro, from the command line.
 //
-//   phraso make <video> [--style area] [--out dir] [--name N] [--words words.json]
+//   phraso make <video> [--style outline] [--out dir] [--name N] [--words words.json]
 //                        [--codec hevc|prores] [--quality 0.9] [--locale en-US]
 //                        [--size 1080] [--matte clear|black|green|blue] [--srt] [--fcpxml] [--background gap|grey]
 //       video in; <name>.mov and <name>.words.json out, beside the video. Drag the movie
@@ -10,11 +10,11 @@
 //       size otherwise); --matte fills behind the cards for an editor without alpha;
 //       --srt also writes <name>.srt, one subtitle per card
 //   phraso transcribe <media> [--out words.json] [--locale en-US]
-//   phraso preview <video|words.json> [--style area] (--step N | --frame F | --time S) [--out card.png]
+//   phraso preview <video|words.json> [--style outline] (--step N | --frame F | --time S) [--out card.png]
 //       one card (or one timeline frame, mid-pop) on grey, to look at
 //   phraso styles                      the presets, shipped and yours
 //   phraso style <name> [--out f.json] a preset's JSON, to copy and edit
-//   phraso icon [--out icon.png] [--size 1024] [--text Hi!] [--style area]
+//   phraso icon [--out icon.png] [--size 1024] [--text Hi!] [--style outline]
 //       the app icon: one spoken word in a style, on the Mac icon shape
 //
 // A style is a preset name or a path to a .json style file.
@@ -55,7 +55,7 @@ func usage() -> Never {
 }
 
 func styleArg(_ a: Args) -> Style {
-    do { return try Presets.style(named: a["style"] ?? "area") } catch { fail("\(error)") }
+    do { return try Presets.style(named: a["style"] ?? Presets.defaultStem) } catch { fail("\(error)") }
 }
 
 func runAsync(_ body: @escaping () async throws -> Void) {
@@ -162,10 +162,11 @@ case "preview":
     }
 
 case "styles":
-    for (stem, url) in Presets.files().sorted(by: { $0.key < $1.key }) {
-        let s = try? Style.load(url)
-        let origin = url.path.hasPrefix(Presets.userDirectory.path) ? "yours" : "shipped"
-        print("\(stem.padding(toLength: 14, withPad: " ", startingAt: 0)) \(s?.font ?? "?") \(s.map { Int($0.size) } ?? 0)  \(origin)")
+    let files = Presets.files(), shipped = Presets.shippedFiles()
+    for stem in Presets.ordered(files.keys) {
+        let url = files[stem]!, s = try? Style.load(url)
+        let origin = shipped[stem].map { FileManager.default.contentsEqual(atPath: $0.path, andPath: url.path) ? "shipped" : "shipped, edited" } ?? "yours"
+        print("\(stem.padding(toLength: 16, withPad: " ", startingAt: 0)) \((s?.name ?? "?").padding(toLength: 16, withPad: " ", startingAt: 0)) \(s?.font ?? "?") \(s.map { Int($0.size) } ?? 0)  \(origin)")
     }
     print("\nyour presets: \(Presets.userDirectory.path)")
 

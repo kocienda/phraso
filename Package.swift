@@ -18,7 +18,7 @@ let package = Package(
     targets: [
         .target(
             name: "PhrasoKit",
-            resources: [.copy("Presets")],
+            resources: [.copy("Presets"), .copy("Fonts")],
             swiftSettings: [.swiftLanguageMode(.v5)]),
         .executableTarget(
             name: "phraso",

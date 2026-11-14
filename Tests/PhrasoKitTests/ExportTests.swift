@@ -38,7 +38,7 @@ final class ExportTests: XCTestCase {
     }
 
     func testAMatteFillsBehindTheCard() throws {
-        let style = try Presets.style(named: "area")
+        let style = try Presets.shipped(named: "outline")
         let r = Renderer(style: style, width: 320, height: 180)
         let ctx = r.makeContext()
         try r.draw(RenderStep(words: ["hi"], highlight: 0, first: 0, last: 1), into: ctx, background: Matte.green.color)

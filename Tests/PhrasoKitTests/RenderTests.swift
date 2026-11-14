@@ -7,7 +7,7 @@ final class RenderTests: XCTestCase {
                                 words: words("Tug:0.5-0.9 uses:0.9-1.4 a:1.4-1.5 collection.:1.5-1.9"))
 
     func testPlanCasesWordsAndCoversTheTimeline() throws {
-        let (steps, frames) = Job.plan(transcript, style: try Presets.style(named: "area"), frameRate: .fps30)
+        let (steps, frames) = Job.plan(transcript, style: try Presets.shipped(named: "outline"), frameRate: .fps30)
         XCTAssertEqual(frames, 90)
         XCTAssertEqual(steps[0].words, ["TUG", "USES", "A"])
         XCTAssertEqual(steps[0].highlight, 0)
@@ -16,7 +16,7 @@ final class RenderTests: XCTestCase {
 
     func testBaselineHoldsWithTrailingPunctuation() throws {
         // the same word with and without a comma must land its cap height at the same rows
-        let r = Renderer(style: try Presets.style(named: "area"), width: 1920, height: 1080)
+        let r = Renderer(style: try Presets.shipped(named: "outline"), width: 1920, height: 1080)
         let plain = try r.image(RenderStep(words: ["GOES", "IDLE"], highlight: 0, first: 0, last: 1))
         let comma = try r.image(RenderStep(words: ["GOES", "IDLE,"], highlight: 0, first: 0, last: 1))
         XCTAssertEqual(topOpaqueRow(plain), topOpaqueRow(comma))
@@ -24,7 +24,7 @@ final class RenderTests: XCTestCase {
 
     func testRotationAndFlipsTurnAboutThePosition() throws {
         // a half turn is the same picture as mirroring both ways, and neither moves the anchor
-        var s = try Presets.style(named: "area")
+        var s = try Presets.shipped(named: "outline")
         s.shadow = nil
         s.position = [0, 0]
         let step = RenderStep(words: ["GOES", "IDLE,"], highlight: 0, first: 0, last: 1)
@@ -40,7 +40,7 @@ final class RenderTests: XCTestCase {
     }
 
     func testHighlightedWordPopsThenSettles() throws {
-        let r = Renderer(style: try Presets.style(named: "area"), width: 1920, height: 1080)
+        let r = Renderer(style: try Presets.shipped(named: "outline"), width: 1920, height: 1080)
         XCTAssertEqual(r.popScale(frameInStep: 0), 0.8, accuracy: 1e-9)
         XCTAssertGreaterThan(r.popScale(frameInStep: 2), 1.0)  // the overshoot
         XCTAssertEqual(r.popScale(frameInStep: 3), 1)
@@ -48,7 +48,7 @@ final class RenderTests: XCTestCase {
     }
 
     func testMovieHasOneFramePerTimelineFrameAndAnAlphaChannel() async throws {
-        let style = try Presets.style(named: "area")
+        let style = try Presets.shipped(named: "outline")
         let (steps, frames) = Job.plan(transcript, style: style, frameRate: .fps30)
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("phraso-\(UUID().uuidString).mov")
         let writer = MovieWriter(renderer: Renderer(style: style, width: 1920, height: 1080), frameRate: .fps30, frames: frames)

@@ -34,7 +34,7 @@ Fast, after every edit:
 
 ```sh
 swift build && swift test
-.build/debug/phraso preview /u/vids/incoming/one-graphical-language.words.json --style area --step 19 --out /tmp/card.png
+.build/debug/phraso preview /u/vids/incoming/one-graphical-language.words.json --style outline --step 19 --out /tmp/card.png
 ```
 
 Slow, once per change to the output:

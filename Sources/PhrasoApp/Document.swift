@@ -27,8 +27,8 @@ final class Document: NSDocument, ObservableObject {
     @Published var videoURL: URL?
     @Published var media: MediaInfo?
     @Published var transcript: Transcript?
-    @Published var style: Style = (try? Presets.style(named: "area")) ?? Style(name: "Area", font: "Anton")
-    @Published var presetName: String? = "area"
+    @Published var style: Style = (try? Presets.style(named: Presets.defaultStem)) ?? Style(name: "Outline", font: "Anton-Regular")
+    @Published var presetName: String? = Presets.defaultStem
     @Published var presets: [(stem: String, style: Style)] = []
     @Published var time: Double = 0
     /// True while the player runs; the playhead (`time`) then follows it.
@@ -101,7 +101,7 @@ final class Document: NSDocument, ObservableObject {
         let project = try JSONDecoder().decode(ProjectFile.self, from: files["project.json"]?.regularFileContents ?? Data("{}".utf8))
         if let d = files["style.json"]?.regularFileContents { style = try JSONDecoder().decode(Style.self, from: d) }
         if let d = files["words.json"]?.regularFileContents { transcript = try JSONDecoder().decode(Transcript.self, from: d) }
-        presetName = project.preset
+        presetName = project.preset.map(Presets.canonical)
         time = project.time
         var url: URL?
         if let b = project.bookmark {
@@ -162,7 +162,8 @@ final class Document: NSDocument, ObservableObject {
     }
 
     func reloadPresets() {
-        presets = Presets.files().sorted { $0.key < $1.key }.compactMap { k, u in (try? Style.load(u)).map { (k, $0) } }
+        let files = Presets.files()
+        presets = Presets.ordered(files.keys).compactMap { k in (try? Style.load(files[k]!)).map { (k, $0) } }
     }
 
     func choosePreset(_ stem: String) {

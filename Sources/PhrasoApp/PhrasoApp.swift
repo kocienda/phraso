@@ -3,6 +3,7 @@
 // Final Cut. A new document asks for its video at once.
 
 import AppKit
+import PhrasoKit
 
 @main @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -16,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillFinishLaunching(_ note: Notification) {
+        BundledFonts.register()
         NSApp.mainMenu = MainMenu.make()
         NotificationCenter.default.addObserver(forName: NSApplication.didFinishRestoringWindowsNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { AppDelegate.restoring = false }

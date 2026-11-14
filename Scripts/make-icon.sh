@@ -1,8 +1,8 @@
 #!/bin/sh
-# Draw the app icon with the engine ("Hi!" in the area style, spoken) and pack it as
+# Draw the app icon with the engine ("Hi!" in the outline style, spoken) and pack it as
 # App/AppIcon.icns, which the bundle script and the Xcode project both ship.
 #
-#   Scripts/make-icon.sh [--text Hi!] [--style area]
+#   Scripts/make-icon.sh [--text Hi!] [--style outline]
 set -e
 cd "$(dirname "$0")/.."
 swift build --product phraso >/dev/null
