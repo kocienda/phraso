@@ -203,13 +203,6 @@ public enum Presets {
     /// The shipped presets in the order they are shown, ahead of the user's own.
     public static let shippedOrder = ["outline", "double-outline", "classic", "box", "shadow"]
 
-    /// The shipped presets' first names: old stem to (stem, old display name). A project
-    /// or a `--style` that names an old stem gets the renamed preset.
-    public static let renamed: [String: (stem: String, name: String)] = [
-        "area": ("outline", "Area"), "glanceable": ("double-outline", "Glanceable"),
-        "yellow": ("classic", "Yellow"), "boxed": ("box", "Boxed"), "clean": ("shadow", "Clean"),
-    ]
-
     /// `PHRASO_PRESETS` moves the folder (the tests use it to stay out of the user's).
     public static var userDirectory: URL {
         if let p = ProcessInfo.processInfo.environment["PHRASO_PRESETS"] { return URL(fileURLWithPath: p, isDirectory: true) }
@@ -228,24 +221,18 @@ public enum Presets {
 
     /// A shipped preset as it ships, whatever the user's folder holds.
     public static func shipped(named stem: String) throws -> Style {
-        guard let url = shippedFiles()[canonical(stem)] else {
+        guard let url = shippedFiles()[stem] else {
             throw PresetError.notFound(stem, shippedOrder)
         }
         return try Style.load(url)
     }
 
-    /// An old stem's new one; any other stem as it is.
-    public static func canonical(_ stem: String) -> String { renamed[stem]?.stem ?? stem }
-
-    /// Copy each shipped preset the user's folder has never had. The first time (no
-    /// `.shipped` yet), presets copied under their old names move to the new ones,
-    /// keeping any edits.
+    /// Copy each shipped preset the user's folder has never had.
     public static func installBundled() {
         let fm = FileManager.default
         let manifest = userDirectory.appendingPathComponent(".shipped")
         try? fm.createDirectory(at: userDirectory, withIntermediateDirectories: true)
         let listed = (try? String(contentsOf: manifest, encoding: .utf8))
-        if listed == nil { moveRenamed() }
         var installed = Set((listed ?? "").split(separator: "\n").map(String.init))
         let before = installed
         for (stem, u) in shippedFiles() where !installed.contains(stem) {
@@ -255,24 +242,6 @@ public enum Presets {
         }
         if installed != before || listed == nil {
             try? (installed.sorted().joined(separator: "\n") + "\n").write(to: manifest, atomically: true, encoding: .utf8)
-        }
-    }
-
-    /// `area.json` to `outline.json` and so on, renaming the style inside when it still
-    /// carries the old name, and naming Anton by its PostScript name as the new ones do.
-    private static func moveRenamed() {
-        let fm = FileManager.default
-        for (old, new) in renamed {
-            let from = userDirectory.appendingPathComponent(old + ".json")
-            let to = userDirectory.appendingPathComponent(new.stem + ".json")
-            guard fm.fileExists(atPath: from.path), !fm.fileExists(atPath: to.path),
-                  var text = try? String(contentsOf: from, encoding: .utf8) else { continue }
-            if (try? Style.load(from))?.name == new.name, let shipped = try? shipped(named: new.stem) {
-                text = text.replacingOccurrences(of: #"("name"\s*:\s*)"\#(new.name)""#,
-                                                 with: "$1\"\(shipped.name)\"", options: .regularExpression)
-            }
-            text = text.replacingOccurrences(of: #"("font"\s*:\s*)"Anton""#, with: "$1\"Anton-Regular\"", options: .regularExpression)
-            if (try? text.write(to: to, atomically: true, encoding: .utf8)) != nil { try? fm.removeItem(at: from) }
         }
     }
 
@@ -298,7 +267,7 @@ public enum Presets {
             return try Style.load(URL(fileURLWithPath: name))
         }
         let have = files()
-        if let url = have[name] ?? have[canonical(name)] ?? shippedFiles()[canonical(name)] {
+        if let url = have[name] ?? shippedFiles()[name] {
             return try Style.load(url)
         }
         throw PresetError.notFound(name, ordered(have.keys))

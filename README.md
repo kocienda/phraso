@@ -105,8 +105,7 @@ A style is one JSON file; the format is documented at the top of
 is a file in `~/Library/Application Support/Phraso/Presets/`; each shipped one is copied
 there once, so it can be edited or deleted like your own (a deleted one stays deleted;
 `.shipped` in that folder lists what has been installed), and the app and the command
-read the same folder. The old names (`area`, `glanceable`, `yellow`, `boxed`, `clean`)
-still work wherever a preset is named, and copies under them move to the new names.
+read the same folder.
 
 The fonts the shipped presets use render on any Mac: Impact comes with macOS, and Anton
 and Inter Black ship inside PhrasoKit (`Sources/PhrasoKit/Fonts`, under the SIL Open

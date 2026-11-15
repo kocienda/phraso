@@ -101,7 +101,7 @@ final class Document: NSDocument, ObservableObject {
         let project = try JSONDecoder().decode(ProjectFile.self, from: files["project.json"]?.regularFileContents ?? Data("{}".utf8))
         if let d = files["style.json"]?.regularFileContents { style = try JSONDecoder().decode(Style.self, from: d) }
         if let d = files["words.json"]?.regularFileContents { transcript = try JSONDecoder().decode(Transcript.self, from: d) }
-        presetName = project.preset.map(Presets.canonical)
+        presetName = project.preset
         time = project.time
         var url: URL?
         if let b = project.bookmark {

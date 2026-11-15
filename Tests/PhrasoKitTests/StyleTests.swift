@@ -45,25 +45,6 @@ final class StyleTests: XCTestCase {
         XCTAssertEqual(try Presets.style(named: "box").name, "Box", "still found by name, as it ships")
     }
 
-    func testOldNamesMoveKeepingEdits() throws {
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let old = #"{"phraso": 1, "name": "Area", "font": "Anton", "size": 96}"#
-        let edited = #"{"phraso": 1, "name": "Mine", "font": "Anton", "size": 80}"#
-        try old.write(to: folder.appendingPathComponent("area.json"), atomically: true, encoding: .utf8)
-        try edited.write(to: folder.appendingPathComponent("glanceable.json"), atomically: true, encoding: .utf8)
-        let files = Presets.files()
-        XCTAssertEqual(Set(files.keys), Set(Presets.shippedOrder))
-        let outline = try Style.load(files["outline"]!)
-        XCTAssertEqual(outline.name, "Outline")
-        XCTAssertEqual(outline.font, "Anton-Regular")
-        XCTAssertEqual(outline.size, 96)
-        let mine = try Style.load(files["double-outline"]!)
-        XCTAssertEqual(mine.name, "Mine")
-        XCTAssertEqual(mine.size, 80)
-        XCTAssertEqual(try Presets.style(named: "yellow").name, "Classic")
-        XCTAssertEqual(Presets.canonical("clean"), "shadow")
-    }
-
     /// Every shipped preset's font comes with macOS or ships in PhrasoKit, so a new
     /// install draws them all without installing a font.
     func testShippedFontsNeedNoInstall() throws {
