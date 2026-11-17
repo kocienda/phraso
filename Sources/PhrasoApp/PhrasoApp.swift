@@ -4,6 +4,7 @@
 
 import AppKit
 import PhrasoKit
+import UniformTypeIdentifiers
 
 @main @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -32,6 +33,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { true }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool { !hasVisibleWindows }
+
+    /// A file dropped on the app's icon or opened from the Finder. A project opens as
+    /// itself; a movie or sound file is captioned in a document of its own: the one
+    /// already showing it, or a new window still waiting for its video, or a new one.
+    /// `App/Info.plist` declares the media types (as a viewer, ranked Alternate) with no
+    /// document class, so they come here rather than to the document controller.
+    func application(_ app: NSApplication, open urls: [URL]) {
+        let controller = NSDocumentController.shared
+        for url in urls {
+            let type = UTType(filenameExtension: url.pathExtension) ?? (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
+            if let type, Document.mediaTypes.contains(where: { type.conforms(to: $0) }) {
+                Document.open(media: url)
+            } else {
+                controller.openDocument(withContentsOf: url, display: true) { _, _, error in
+                    if let error { controller.presentError(error) }
+                }
+            }
+        }
+    }
 
     @objc func showSettings(_ sender: Any?) {
         SettingsWindowController.shared.showWindow(sender)

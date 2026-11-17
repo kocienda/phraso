@@ -197,6 +197,33 @@ final class Document: NSDocument, ObservableObject {
     }
 
     @objc func chooseVideo(_ sender: Any?) { chooseVideo() }
+
+    /// Caption `url`, as opened from the Finder or dropped on the app's icon.
+    static func open(media url: URL) {
+        let controller = NSDocumentController.shared
+        let docs = controller.documents.compactMap { $0 as? Document }
+        if let doc = docs.first(where: { $0.videoURL?.standardizedFileURL == url.standardizedFileURL }) {
+            doc.showWindows()
+            return
+        }
+        // a new window still asking for its video takes this one; its sheet then goes
+        if let doc = docs.first(where: { $0.videoURL == nil && $0.fileURL == nil && !$0.isDocumentEdited }) {
+            doc.load(url)
+            (doc.window?.attachedSheet as? NSSavePanel)?.cancel(nil)
+            doc.showWindows()
+            return
+        }
+        do {
+            guard let doc = try controller.makeUntitledDocument(ofType: controller.defaultType ?? "com.kocienda.phraso.project") as? Document else { return }
+            controller.addDocument(doc)
+            doc.load(url)
+            doc.makeWindowControllers()
+            doc.showWindows()
+        } catch {
+            controller.presentError(error)
+        }
+    }
+
     @objc func exportMovie(_ sender: Any?) { export() }
     @objc func saveStylePreset(_ sender: Any?) { savePreset() }
     @objc func togglePlayback(_ sender: Any?) { togglePlay() }
