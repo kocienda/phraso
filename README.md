@@ -3,17 +3,24 @@
 Word-highlighted captions for video, made on the Mac. A video goes in; a caption movie
 comes out: the captions alone over an alpha channel, at the video's own frame rate, to
 lay over the footage as a single clip. The spoken word is coloured and pops in, the way
-the trending caption presets do, in any font, with rounded nested borders, a box and a
+short-form video captions do, in any font, with rounded nested borders, a box and a
 shadow.
+
+<img src="Samples/card.png" width="640" alt="A caption card reading SAMPLE AUDIO TO, the spoken word in cyan">
 
 The movie is an ordinary QuickTime file, so it goes into any video editor: one that reads
 alpha takes it as it is, and one that does not can have the cards on a solid colour
 instead. Final Cut Pro gets a little more: the movie connects to the clip it is dragged
 above, and a project file can be written for it to import.
 
-Nothing leaves the machine. Speech recognition is the Mac's own (the Speech framework),
-the cards are drawn with Core Text and Core Graphics, and the movie is written with
-AVFoundation. It needs macOS 26.
+Your video and its words never leave the machine. Speech recognition is the Mac's own
+(the Speech framework), the cards are drawn with Core Text and Core Graphics, and the
+movie is written with AVFoundation. The one download is Apple's: the first transcription
+in a language may fetch that language's speech model, and macOS may ask to allow speech
+recognition.
+
+It needs macOS 26 and builds from source, with Xcode 26 or its command-line tools; there
+is no built app to download yet.
 
 ## What it makes
 
@@ -32,12 +39,16 @@ From one video or sound file, beside it unless told otherwise:
 
 A document is one video and its captions. A new document asks for its video (any movie or
 sound file AVFoundation opens, or drop one on the window), transcribes it on the Mac and
-shows:
+shows what is listed below. A movie or sound file opened with Phraso from the Finder
+starts a document the same way.
 
 - **The preview**: the footage playing with the caption drawn over it, a scrubber and the
   transport, on Space, ←, →, Home and End.
 - **The transcript**: every word as an editable chip. Click a word to move the playhead
-  to it and fix it; Tab and Shift-Tab go between words; edits are undo steps.
+  to it and select it, and click again to place the caret; Tab and Shift-Tab go between
+  words, and Return or Esc lets go. Delete on a selected word removes it, as does
+  emptying it; a click between two words adds one there. Edit > Add Card Break (⌘R)
+  ends the card after a word, whatever the words-per-card count. Edits are undo steps.
   Re-transcribe starts over.
 - **The styles**: the presets as thumbnails, and an inspector, laid out like Keynote's,
   for every field of the style: font, letter case, tracking, colours, the spoken word's
@@ -105,7 +116,6 @@ phraso transcribe talk.mov --out talk.words.json       # the words alone
 phraso preview talk.mov --style classic --time 6.5     # one frame, over grey, to look at
 phraso styles                                          # the presets, shipped and yours
 phraso style outline --out mine.json                   # a preset to edit; then --style mine.json
-phraso icon --text Hi! --out icon.png                  # the app icon, a word in a style
 ```
 
 ## Styles
@@ -135,9 +145,15 @@ Mac does not have shows it in red in the app's font menu and fails to render, na
   target over the package; `Scripts/bundle-app.sh` does the same with SwiftPM alone. Both use
   `App/Info.plist` and `App/AppIcon.icns` (drawn by `Scripts/make-icon.sh`).
 - `Tests/PhrasoKitTests` — cards, styles, rendering, the movie, subtitles, the FCPXML.
-- `Samples` — a short recording and its transcript, to try the command on.
+- `Samples` — a short recording and its transcript, to try the command on, and the
+  picture at the top of this page.
 - `Tools/fcp.py` — drives Final Cut through System Events and screen capture to import
   a file and photograph the viewer at timecodes, so the output is checked by machine.
   `Tools/fcp/` holds the small Swift helpers it and the app checks use (window ids,
   mouse clicks); `Tools/nibdump.py` reads Keynote's inspector nibs for the inspector's
   measurements.
+
+## License
+
+MIT; see `LICENSE`. The bundled fonts are under the SIL Open Font License, with their
+licence texts beside them in `Sources/PhrasoKit/Fonts`.

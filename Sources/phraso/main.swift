@@ -4,7 +4,7 @@
 //                        [--codec hevc|prores] [--quality 0.9] [--locale en-US]
 //                        [--size 1080] [--matte clear|black|green|blue] [--srt] [--fcpxml] [--background gap|grey]
 //       video in; <name>.mov and <name>.words.json out, beside the video. Drag the movie
-//       onto the Final Cut timeline. --fcpxml also writes <name>.fcpxml, a project holding
+//       onto your editor's timeline. --fcpxml also writes <name>.fcpxml, a Final Cut project holding
 //       the movie over a gap; --background grey puts it over grey instead and implies --fcpxml
 //       --size scales the movie to that many pixels on its shorter side (the video's own
 //       size otherwise); --matte fills behind the cards for an editor without alpha;
