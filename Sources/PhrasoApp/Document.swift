@@ -523,7 +523,7 @@ final class Document: NSDocument, ObservableObject {
                 }
                 await MainActor.run {
                     self.lastExport = outputs
-                    self.status = "Wrote \(outputs.movie.lastPathComponent). Drag it onto the Final Cut timeline."
+                    self.status = "Wrote \(outputs.movie.lastPathComponent). Drag it onto your editor's timeline."
                     self.isBusy = false
                     if reveal {
                         NSWorkspace.shared.activateFileViewerSelecting([outputs.movie, outputs.fcpxml, outputs.subtitles, outputs.words].compactMap { $0 })

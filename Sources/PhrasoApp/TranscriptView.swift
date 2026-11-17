@@ -667,7 +667,7 @@ final class ExportChip: NSView, NSDraggingSource {
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])
-        toolTip = "Drag onto the Final Cut timeline, above the clip it captions"
+        toolTip = "Drag onto your editor's timeline, above the clip it captions"
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }

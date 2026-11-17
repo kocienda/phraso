@@ -6,10 +6,10 @@ lay over the footage as a single clip. The spoken word is coloured and pops in, 
 the trending caption presets do, in any font, with rounded nested borders, a box and a
 shadow.
 
-It is made for Final Cut Pro, where the movie is dragged onto the timeline above the clip
-it captions and connects there, but the movie is an ordinary QuickTime file: any editor
-that reads alpha takes it as it is, and one that does not can have the cards on a solid
-colour instead.
+The movie is an ordinary QuickTime file, so it goes into any video editor: one that reads
+alpha takes it as it is, and one that does not can have the cards on a solid colour
+instead. Final Cut Pro gets a little more: the movie connects to the clip it is dragged
+above, and a project file can be written for it to import.
 
 Nothing leaves the machine. Speech recognition is the Mac's own (the Speech framework),
 the cards are drawn with Core Text and Core Graphics, and the movie is written with
@@ -45,7 +45,7 @@ shows:
   and how words are grouped into cards. File > Save Style as Preset (⇧⌘S) keeps the look.
 - **Export** (⌘E): writes the movie and whatever Settings > Movie Export asks for beside
   it. The movie then sits as a chip above the transcript, and on the film icon in the
-  title bar, to drag from there onto the Final Cut timeline.
+  title bar, to drag from there onto the editor's timeline.
 
 A document saves as a `.phraso` package holding the corrected words, the style, the
 playhead and a bookmark to the video, which stays where it is. Untitled documents are

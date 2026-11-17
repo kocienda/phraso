@@ -1,4 +1,4 @@
-// phraso: word-highlighted captions for Final Cut Pro, from the command line.
+// phraso: word-highlighted captions for video, from the command line.
 //
 //   phraso make <video> [--style outline] [--out dir] [--name N] [--words words.json]
 //                        [--codec hevc|prores] [--quality 0.9] [--locale en-US]

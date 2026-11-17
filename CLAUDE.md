@@ -1,10 +1,10 @@
 # Phraso
 
-A Mac app and command that make word-highlighted captions for Final Cut
-Pro: on-device transcription, cards drawn with Core Text, one HEVC-with-alpha movie
-to drag onto the timeline as a single connected clip. Grew out of a private script
-written after finding what Final Cut's own title tools cannot do. This repo is the
-product.
+A Mac app and command that make word-highlighted captions for video: on-device
+transcription, cards drawn with Core Text, one HEVC-with-alpha movie to lay over the
+footage in any editor as a single clip. Final Cut Pro is the editor it is checked
+against, and the one it writes a project file for. Grew out of a private script written
+after finding what Final Cut's own title tools cannot do. This repo is the product.
 
 ## Layout
 

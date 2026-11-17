@@ -1,5 +1,5 @@
 // swift-tools-version: 6.0
-// Phraso: word-highlighted captions for Final Cut Pro, drawn on the Mac.
+// Phraso: word-highlighted captions for video, drawn on the Mac.
 //
 //   PhrasoKit  the engine: transcript, cards, styles, renderer, movie writer, FCPXML
 //   phraso     the command-line tool on top of it

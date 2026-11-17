@@ -90,8 +90,8 @@ final class DocumentWindowController: NSWindowController, NSToolbarDelegate, NSM
     private func watch() {
         doc.$lastExport.receive(on: DispatchQueue.main).sink { [weak self] export in
             self?.film.toolTip = export.map {
-                "Drag onto the Final Cut timeline to add \($0.movie.lastPathComponent). Click to choose another video (⇧⌘O)."
-            } ?? "Choose the video or sound file to caption (⇧⌘O). After an Export, drag from here to put the caption movie on the Final Cut timeline."
+                "Drag onto your editor's timeline to add \($0.movie.lastPathComponent). Click to choose another video (⇧⌘O)."
+            } ?? "Choose the video or sound file to caption (⇧⌘O). After an Export, drag from here to put the caption movie on your editor's timeline."
         }.store(in: &bag)
         doc.$transcript.combineLatest(doc.$isBusy).receive(on: DispatchQueue.main).sink { [weak self] t, busy in
             self?.exportItem?.isEnabled = t != nil && !busy
