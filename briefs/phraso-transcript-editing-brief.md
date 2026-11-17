@@ -6,7 +6,7 @@
 
 ## Purpose {#purpose}
 
-The user's notes (`Resources/phraso-notes.md`, in `/u/src/phraso`), as written:
+The user's notes, as written:
 
 - space bar should stop/start the movie/audio playback (when nothing else is selected)
 - clicking on a word chip to edit it and then hitting return should *remove the focus from that chip
@@ -66,13 +66,13 @@ The user's notes (`Resources/phraso-notes.md`, in `/u/src/phraso`), as written:
 - **A separate break chip in the transcript.** This was considered for [B08]: a break you insert and delete like a word. It is easier to see, but it adds a second kind of item to the transcript and to the words file. The user chose Shift-Return and a flag on the word.
 - **Esc as cancel.** Rejected in [B01]. Undo is the way back.
 - **Splitting a chip on a typed space into two words.** Raised in the sketch as an extra; it isn't in the user's notes and isn't part of this work.
-- **The settings copy note** ("need to fix copy in the app settings" in `phraso-notes.md`). It is separate from this round.
+- **The settings copy note** ("need to fix copy in the app settings" in the notes). It is separate from this round.
 
 ---
 
 ## Exit {#exit}
 
-An arc in `/u/src/phraso`. The work falls into these pieces:
+The work falls into these pieces:
 
 1. **Focus and keys:** [B01], [B02], [B03]. Removing focus from the chip is what lets space work, so the space-bar check ([B03]) comes after it.
 2. **Click and selection:** [B04].

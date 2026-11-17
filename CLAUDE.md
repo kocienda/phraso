@@ -1,10 +1,10 @@
 # Phraso
 
-A Mac app and command that make CapCut-style word-highlighted captions for Final Cut
+A Mac app and command that make word-highlighted captions for Final Cut
 Pro: on-device transcription, cards drawn with Core Text, one HEVC-with-alpha movie
-to drag onto the timeline as a single connected clip. Grew out of `/u/vids/tools/captions.py`;
-that repo keeps the record of what Final Cut's own title tools cannot do
-(`/u/vids/docs/captions.md`). This repo is the product.
+to drag onto the timeline as a single connected clip. Grew out of a private script
+written after finding what Final Cut's own title tools cannot do. This repo is the
+product.
 
 ## Layout
 
@@ -34,14 +34,14 @@ Fast, after every edit:
 
 ```sh
 swift build && swift test
-.build/debug/phraso preview /u/vids/incoming/one-graphical-language.words.json --style outline --step 19 --out /tmp/card.png
+.build/debug/phraso preview Samples/example.words.json --style outline --step 3 --out /tmp/card.png
 ```
 
 Slow, once per change to the output:
 
 ```sh
-.build/debug/phraso make /u/vids/incoming/one-graphical-language.wav --words /u/vids/incoming/one-graphical-language.words.json --out /tmp/ph --name ogl --background grey
-python3 Tools/fcp.py check /tmp/ph/ogl.fcpxml 00:00:06:16 00:00:06:19 00:00:07:05 --out /tmp/frames.png
+.build/debug/phraso make Samples/example.wav --words Samples/example.words.json --out /tmp/ph --name sample --background grey
+python3 Tools/fcp.py check /tmp/ph/sample.fcpxml 00:00:01:00 00:00:02:15 00:00:03:20 --out /tmp/frames.png
 ```
 
 imports the file into Final Cut, opens the project and tiles viewer crops into one PNG

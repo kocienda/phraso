@@ -71,6 +71,17 @@ project's own event. Put the movie where it will stay first: Final Cut links it 
 To fix a word, edit `talk.captions.words.json` and run again with
 `--words talk.captions.words.json`; the timings hold.
 
+To try it without a video of your own, `Samples/` holds a few seconds of speech and its
+transcript:
+
+```sh
+swift build
+.build/debug/phraso preview Samples/example.words.json --style outline --step 3 --out card.png
+.build/debug/phraso make Samples/example.wav --words Samples/example.words.json --out out
+```
+
+The first draws one card as a PNG; the second writes `out/example.captions.mov`.
+
 The options of `make`:
 
 | Option | What it does |
@@ -124,6 +135,7 @@ Mac does not have shows it in red in the app's font menu and fails to render, na
   target over the package; `Scripts/bundle-app.sh` does the same with SwiftPM alone. Both use
   `App/Info.plist` and `App/AppIcon.icns` (drawn by `Scripts/make-icon.sh`).
 - `Tests/PhrasoKitTests` — cards, styles, rendering, the movie, subtitles, the FCPXML.
+- `Samples` — a short recording and its transcript, to try the command on.
 - `Tools/fcp.py` — drives Final Cut through System Events and screen capture to import
   a file and photograph the viewer at timecodes, so the output is checked by machine.
   `Tools/fcp/` holds the small Swift helpers it and the app checks use (window ids,
